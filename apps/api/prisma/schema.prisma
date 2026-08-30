@@ -1,0 +1,457 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- ENUMS ----------
+// Kept in sync by hand with packages/shared/src/enums — Prisma can't import TS enums directly.
+
+enum Role {
+  SUPERADMIN
+  CLUB_ADMIN
+  COACH
+  SCOUT // reserved, not assignable from any v1 UI
+  PLAYER // reserved, not assignable from any v1 UI
+}
+
+enum TournamentFormat {
+  GROUP_STAGE
+  ELIMINATION_BRACKET
+  COMBINED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  PLAYED
+}
+
+enum MatchEndType {
+  REGULAR_TIME
+  SUDDEN_DEATH
+}
+
+enum VideoSourceType {
+  FILE
+  EXTERNAL
+}
+
+enum VideoProcessingStatus {
+  PENDING
+  UPLOADING
+  READY
+  FAILED
+}
+
+enum ActionType {
+  SHOT_2PT_MADE
+  SHOT_2PT_MISSED
+  SHOT_1PT_MADE
+  SHOT_1PT_MISSED
+  FREE_THROW_MADE
+  FREE_THROW_MISSED
+  OFFENSIVE_REBOUND
+  DEFENSIVE_REBOUND
+  ASSIST
+  TURNOVER
+  STEAL
+  BLOCK
+  PERSONAL_FOUL
+}
+
+enum Handedness {
+  LEFT
+  RIGHT
+  AMBIDEXTROUS
+  UNKNOWN
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// StatSnapshot aggregation scope: kept as a plain string discriminator (see StatSnapshot below)
+// rather than three separate tables, so there's one write path for match/tournament/career.
+enum StatScope {
+  MATCH
+  TOURNAMENT
+  CAREER
+}
+
+// ---------- CORE ENTITIES ----------
+
+model Club {
+  id           String   @id @default(cuid())
+  name         String
+  city         String?
+  logoUrl      String?
+  contactEmail String?
+  contactPhone String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teams        Team[]
+  memberships  ClubMembership[]
+  invites      Invite[]
+  scoutNotes   ScoutNote[]
+  activityLogs ActivityLog[]
+  tournaments  Tournament[]
+  homePlayers  Player[]         @relation("PlayerHomeClub")
+
+  @@index([city])
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  isActive      Boolean  @default(true)
+  // Platform-level role with no club scope. SUPERADMIN users are not expected to hold any
+  // ClubMembership rows — club-scoped roles (CLUB_ADMIN/COACH/...) live on ClubMembership instead.
+  isSuperadmin  Boolean  @default(false)
+  locale        String   @default("sr")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships    ClubMembership[]
+  createdMatches Match[]        @relation("MatchCreatedBy")
+  createdTags    ActionTag[]    @relation("TagCreatedBy")
+  scoutNotes     ScoutNote[]
+  activityLogs   ActivityLog[]
+  refreshTokens  RefreshToken[]
+  uploadedVideos VideoAsset[]   @relation("VideoUploadedBy")
+}
+
+// A user's role is scoped per club (a coach could in principle help two clubs).
+// SUPERADMIN rows are not expected to have club memberships at all.
+model ClubMembership {
+  id        String   @id @default(cuid())
+  userId    String
+  clubId    String
+  role      Role
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clubId])
+  @@index([clubId])
+}
+
+model Invite {
+  id         String    @id @default(cuid())
+  email      String
+  clubId     String
+  role       Role
+  token      String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([clubId])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  clubId      String
+  name        String
+  jerseyColor String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  club          Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  rosters       Roster[]
+  homeMatches   Match[]        @relation("HomeTeam")
+  awayMatches   Match[]        @relation("AwayTeam")
+  actionTags    ActionTag[]
+  statSnapshots StatSnapshot[] @relation("TeamStatSnapshots")
+
+  @@index([clubId])
+}
+
+model Player {
+  id           String     @id @default(cuid())
+  firstName    String
+  lastName     String
+  dateOfBirth  DateTime?
+  heightCm     Int?
+  dominantHand Handedness @default(UNKNOWN)
+  photoUrl     String?
+  homeClubId   String?
+  position     String? // informational only — 3x3 doesn't enforce positions
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  homeClub      Club?          @relation("PlayerHomeClub", fields: [homeClubId], references: [id])
+  rosterEntries RosterPlayer[]
+  actionTagsAs  ActionTag[]    @relation("PrimaryPlayer")
+  actionTagsRel ActionTag[]    @relation("RelatedPlayer")
+  scoutNotes    ScoutNote[]
+  statSnapshots StatSnapshot[] @relation("PlayerStatSnapshots")
+
+  @@index([homeClubId])
+  @@index([lastName, firstName])
+}
+
+// Roster = players assigned to a TEAM for a specific TOURNAMENT — deliberately not a fixed
+// team member list, because a player's lineup can change per event (spec requirement).
+model Roster {
+  id           String   @id @default(cuid())
+  teamId       String
+  tournamentId String
+  createdAt    DateTime @default(now())
+
+  team       Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tournament Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  players    RosterPlayer[]
+
+  @@unique([teamId, tournamentId])
+}
+
+model RosterPlayer {
+  id           String @id @default(cuid())
+  rosterId     String
+  playerId     String
+  jerseyNumber Int?
+
+  roster Roster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([rosterId, playerId])
+  @@index([playerId])
+}
+
+model Tournament {
+  id          String           @id @default(cuid())
+  name        String
+  location    String?
+  startDate   DateTime
+  endDate     DateTime?
+  format      TournamentFormat
+  ageCategory String? // e.g. U18, Senior — supports scouting filter
+  clubId      String? // optional organizing club; tournaments can span many clubs' teams
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  club          Club?          @relation(fields: [clubId], references: [id])
+  rosters       Roster[]
+  matches       Match[]
+  statSnapshots StatSnapshot[]
+
+  @@index([startDate])
+}
+
+model Match {
+  id            String        @id @default(cuid())
+  tournamentId  String
+  homeTeamId    String
+  awayTeamId    String
+  scheduledAt   DateTime?
+  status        MatchStatus   @default(SCHEDULED)
+  endType       MatchEndType?
+  homeScore     Int?
+  awayScore     Int?
+  homeTeamFouls Int           @default(0) // running total, reconciled from tags on lock
+  awayTeamFouls Int           @default(0)
+  lockedAt      DateTime?
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tournament    Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  homeTeam      Team           @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam      Team           @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  createdBy     User           @relation("MatchCreatedBy", fields: [createdById], references: [id])
+  videoAssets   VideoAsset[]
+  actionTags    ActionTag[]
+  statSnapshots StatSnapshot[]
+  activityLogs  ActivityLog[]
+
+  @@index([tournamentId])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([status])
+}
+
+model VideoAsset {
+  id               String                @id @default(cuid())
+  matchId          String
+  sourceType       VideoSourceType
+  fileKey          String? // S3/R2 object key — set iff sourceType = FILE
+  externalUrl      String? // e.g. YouTube URL — set iff sourceType = EXTERNAL
+  durationSec      Int?
+  processingStatus VideoProcessingStatus @default(PENDING)
+  uploadedById     String
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  match       Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  uploadedBy  User        @relation("VideoUploadedBy", fields: [uploadedById], references: [id])
+  actionTags  ActionTag[]
+
+  @@index([matchId])
+}
+
+// SOURCE OF TRUTH for all stats. StatSnapshot is only ever derived from these rows.
+model ActionTag {
+  id              String     @id @default(cuid())
+  matchId         String
+  videoAssetId    String? // nullable: kept optional at the schema level for flexibility
+  timestampSec    Float
+  actionType      ActionType
+  teamId          String // team credited/charged with the action
+  playerId        String? // primary player (null allowed for rare pure team events)
+  relatedPlayerId String? // assist passer / blocker / stolen-from opponent
+  pointValue      Int? // 1 or 2 only — enforced in the service layer AND a DB CHECK constraint
+  isMade          Boolean? // for shot/FT actions; null for non-shot actions
+  createdById     String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  match         Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  videoAsset    VideoAsset? @relation(fields: [videoAssetId], references: [id])
+  team          Team        @relation(fields: [teamId], references: [id])
+  player        Player?     @relation("PrimaryPlayer", fields: [playerId], references: [id])
+  relatedPlayer Player?     @relation("RelatedPlayer", fields: [relatedPlayerId], references: [id])
+  createdBy     User        @relation("TagCreatedBy", fields: [createdById], references: [id])
+  clipJob       ClipJob?
+  compilationItems CompilationItem[]
+
+  @@index([matchId])
+  @@index([playerId])
+  @@index([teamId])
+  @@index([matchId, timestampSec])
+}
+
+model ClipJob {
+  id           String    @id @default(cuid())
+  actionTagId  String    @unique
+  status       JobStatus @default(QUEUED)
+  outputKey    String? // S3/R2 key of the generated mp4; null for EXTERNAL-source tags
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  actionTag ActionTag @relation(fields: [actionTagId], references: [id], onDelete: Cascade)
+}
+
+model Compilation {
+  id          String   @id @default(cuid())
+  title       String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  items CompilationItem[]
+}
+
+model CompilationItem {
+  id            String @id @default(cuid())
+  compilationId String
+  actionTagId   String
+  order         Int
+
+  compilation Compilation @relation(fields: [compilationId], references: [id], onDelete: Cascade)
+  actionTag   ActionTag   @relation(fields: [actionTagId], references: [id])
+
+  @@unique([compilationId, order])
+}
+
+// Derived/cached layer only — never hand-edited, always recomputed from ActionTag on match lock.
+model StatSnapshot {
+  id           String    @id @default(cuid())
+  scopeType    StatScope
+  playerId     String?
+  teamId       String?
+  matchId      String?
+  tournamentId String?
+
+  gamesPlayed   Int @default(0)
+  points        Int @default(0)
+  shots1ptMade  Int @default(0)
+  shots1ptAtt   Int @default(0)
+  shots2ptMade  Int @default(0)
+  shots2ptAtt   Int @default(0)
+  ftMade        Int @default(0)
+  ftAtt         Int @default(0)
+  offRebounds   Int @default(0)
+  defRebounds   Int @default(0)
+  assists       Int @default(0)
+  turnovers     Int @default(0)
+  steals        Int @default(0)
+  blocks        Int @default(0)
+  personalFouls Int @default(0)
+
+  // Reserved nullable columns for later-pass advanced metrics — added now so no migration
+  // is needed to start populating them once that work begins.
+  pointsPerPossession Float?
+  plusMinus           Int?
+  avgPossessionSec    Float?
+
+  computedAt DateTime @updatedAt
+
+  player     Player?     @relation("PlayerStatSnapshots", fields: [playerId], references: [id], onDelete: Cascade)
+  team       Team?       @relation("TeamStatSnapshots", fields: [teamId], references: [id], onDelete: Cascade)
+  match      Match?      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  tournament Tournament? @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([scopeType, playerId, teamId, matchId, tournamentId])
+  @@index([playerId, scopeType])
+  @@index([teamId, scopeType])
+}
+
+model ScoutNote {
+  id        String   @id @default(cuid())
+  playerId  String
+  clubId    String // visibility scope: only members of this club can see it
+  authorId  String
+  note      String
+  isTracked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  club   Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([playerId, clubId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  clubId    String
+  userId    String
+  matchId   String?
+  action    String // e.g. "MATCH_CREATED", "MATCH_LOCKED", "TAG_EDITED"
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  club  Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user  User   @relation(fields: [userId], references: [id])
+  match Match? @relation(fields: [matchId], references: [id])
+
+  @@index([clubId, createdAt])
+}
