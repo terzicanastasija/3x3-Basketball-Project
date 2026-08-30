@@ -1,0 +1,5 @@
+export enum TournamentFormat {
+  GROUP_STAGE = "GROUP_STAGE",
+  ELIMINATION_BRACKET = "ELIMINATION_BRACKET",
+  COMBINED = "COMBINED",
+}
