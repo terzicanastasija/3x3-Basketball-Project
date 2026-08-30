@@ -1,0 +1,17 @@
+{
+  "appName": "3x3 Trener",
+  "auth": {
+    "login": {
+      "title": "Prijava",
+      "email": "Email",
+      "password": "Lozinka",
+      "submit": "Prijavi se",
+      "error": "Pogrešan email ili lozinka."
+    },
+    "logout": "Odjavi se"
+  },
+  "home": {
+    "welcome": "Dobrodošli, {{name}}",
+    "loading": "Učitavanje..."
+  }
+}

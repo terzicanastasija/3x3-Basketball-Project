@@ -1,0 +1,17 @@
+{
+  "appName": "3x3 Coach",
+  "auth": {
+    "login": {
+      "title": "Log in",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Log in",
+      "error": "Invalid email or password."
+    },
+    "logout": "Log out"
+  },
+  "home": {
+    "welcome": "Welcome, {{name}}",
+    "loading": "Loading..."
+  }
+}
