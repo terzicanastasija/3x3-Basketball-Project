@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+apps/api/.env
+apps/web/.env
+
+# logs
+npm-debug.log*
+pnpm-debug.log*
+
+# editors/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# docker volumes are named volumes, not bind mounts, so nothing to ignore there
+
+# prisma
+apps/api/prisma/dev.db
