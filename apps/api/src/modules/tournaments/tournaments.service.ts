@@ -19,7 +19,7 @@ export class TournamentsService {
     return this.ensureExists(tournamentId);
   }
 
-  create(user: AuthenticatedUser, clubContext: ClubContext, dto: CreateTournamentDto) {
+  async create(user: AuthenticatedUser, clubContext: ClubContext, dto: CreateTournamentDto) {
     if (!user.isSuperadmin) {
       if (dto.clubId) {
         this.assertClubAdmin(clubContext, dto.clubId);
