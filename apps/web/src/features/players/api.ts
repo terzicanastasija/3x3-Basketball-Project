@@ -25,10 +25,11 @@ function toQueryString(query: PlayerSearchQueryDto): string {
   return qs ? `?${qs}` : "";
 }
 
-export function usePlayers(query: PlayerSearchQueryDto) {
+export function usePlayers(query: PlayerSearchQueryDto, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["players", query],
     queryFn: () => apiFetch<Player[]>(`/players${toQueryString(query)}`),
+    enabled: options.enabled ?? true,
   });
 }
 

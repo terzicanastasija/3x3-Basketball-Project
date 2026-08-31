@@ -11,7 +11,7 @@ import { useMatch } from "../../matches/api";
 import { useTeam } from "../../teams/api";
 import { useRoster } from "../../rosters/api";
 import { usePlayers } from "../../players/api";
-import { usePlaybackUrl } from "../../video/api";
+import { usePlaybackUrl, useVideosForMatch } from "../../video/api";
 import { VideoRegistrationPanel } from "../../video/VideoRegistrationPanel";
 import { useCreateTag, useDeleteTag, useLockMatch, useTagsForMatch, useUpdateTag } from "../../tags/api";
 import { VideoPlayer } from "../player/VideoPlayer";
@@ -34,7 +34,15 @@ export function TaggingPage() {
   const { data: homeTeam } = useTeam(match?.homeTeamId);
   const { data: awayTeam } = useTeam(match?.awayTeamId);
 
+  const { data: videos } = useVideosForMatch(matchId);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  useEffect(() => {
+    // Nothing chosen yet on this visit but a video is already registered — jump straight to
+    // tagging instead of making the coach re-pick from a radio list every time they arrive.
+    if (!selectedVideoId && videos && videos.length > 0) {
+      setSelectedVideoId(videos[0].id);
+    }
+  }, [videos, selectedVideoId]);
   const { data: playback } = usePlaybackUrl(selectedVideoId ?? undefined);
   const adapterRef = useRef<VideoPlayerAdapter | null>(null);
   const [adapterReady, setAdapterReady] = useState(false);
@@ -51,15 +59,21 @@ export function TaggingPage() {
 
   const homeRoster = useRoster(match?.homeTeamId, match?.tournamentId);
   const awayRoster = useRoster(match?.awayTeamId, match?.tournamentId);
-  // Prefer the tournament roster for the selected team; if none has been built yet, fall back
-  // to the team's whole club roster so tagging is never blocked on roster-building first.
-  const fallbackClubId = selectedTeamId === match?.homeTeamId ? homeTeam?.clubId : awayTeam?.clubId;
-  const fallbackPlayers = usePlayers(fallbackClubId ? { clubId: fallbackClubId } : {});
-  const activeRoster = selectedTeamId === match?.homeTeamId ? homeRoster.data : awayRoster.data;
+  const isHomeSelected = selectedTeamId === match?.homeTeamId;
+  const activeRosterQuery = isHomeSelected ? homeRoster : awayRoster;
+  // Prefer the tournament roster for the selected team; if none has been built yet (and we're
+  // sure, not just still loading), fall back to the team's whole club roster so tagging is
+  // never blocked on roster-building first. Only fetches the fallback when actually needed.
+  const fallbackClubId = isHomeSelected ? homeTeam?.clubId : awayTeam?.clubId;
+  const needsFallback = !activeRosterQuery.isLoading && !activeRosterQuery.data;
+  const fallbackPlayers = usePlayers(
+    fallbackClubId ? { clubId: fallbackClubId } : {},
+    { enabled: needsFallback && Boolean(fallbackClubId) }
+  );
   const teamPlayers = useMemo(() => {
-    if (activeRoster) return activeRoster.players.map((p) => p.player);
+    if (activeRosterQuery.data) return activeRosterQuery.data.players.map((p) => p.player);
     return fallbackPlayers.data ?? [];
-  }, [activeRoster, fallbackPlayers.data]);
+  }, [activeRosterQuery.data, fallbackPlayers.data]);
 
   const { data: tags } = useTagsForMatch(matchId);
   const createTag = useCreateTag(matchId ?? "");

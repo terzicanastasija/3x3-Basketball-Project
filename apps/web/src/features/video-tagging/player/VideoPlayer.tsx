@@ -27,14 +27,19 @@ export function VideoPlayer({ sourceType, src, onAdapterReady }: VideoPlayerProp
     } else if (sourceType === "EXTERNAL" && containerRef.current) {
       const videoId = extractYouTubeVideoId(src);
       if (videoId) {
-        void createYouTubeAdapter(containerRef.current, videoId).then((created) => {
-          if (cancelled) {
-            created.destroy();
-            return;
-          }
-          adapter = created;
-          onAdapterReady(created);
-        });
+        void createYouTubeAdapter(containerRef.current, videoId)
+          .then((created) => {
+            if (cancelled) {
+              created.destroy();
+              return;
+            }
+            adapter = created;
+            onAdapterReady(created);
+          })
+          .catch((error) => {
+            // eslint-disable-next-line no-console
+            console.error("Failed to create YouTube player adapter", error);
+          });
       }
     }
 
@@ -46,7 +51,15 @@ export function VideoPlayer({ sourceType, src, onAdapterReady }: VideoPlayerProp
   }, [sourceType, src]);
 
   if (sourceType === "FILE") {
-    return <video ref={videoRef} src={src} controls style={{ width: "100%", maxWidth: 480 }} />;
+    return (
+      <video
+        ref={videoRef}
+        src={src}
+        controls
+        data-testid="video-player-file"
+        style={{ width: "100%", maxWidth: 480 }}
+      />
+    );
   }
-  return <div ref={containerRef} style={{ width: 480, height: 270 }} />;
+  return <div ref={containerRef} data-testid="video-player-youtube" style={{ width: 480, height: 270 }} />;
 }
