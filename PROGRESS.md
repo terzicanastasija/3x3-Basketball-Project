@@ -13,9 +13,109 @@ needs more detail than this file gives).
 
 ## Where we are right now
 
-**Phase 1 — Club/Team/Player/Roster CRUD — DONE.** Phase 0 is done (see below). This session
-(2026-08-31, same day, later) built and verified Phase 1 end-to-end: superadmin invites a coach
-by email, coach accepts and logs in, coach builds a roster.
+**Phase 2 — Tournament/Match CRUD — DONE.** Phases 0 and 1 are done (see below). This session
+(2026-08-31, same day, later still) built and verified Phase 2 end-to-end: create a tournament,
+schedule a match between two teams, record a manual result, confirm it stuck.
+
+### Phase 2 — backend (`apps/api`)
+
+`TournamentsModule` upgraded from Phase 1's read-only picker stub to full CRUD (list/get open to
+any authenticated user; create/update/delete require `CLUB_ADMIN` of the organizing club, or
+superadmin). New `MatchesModule`: schedule a match under a tournament (`POST
+/tournaments/:tournamentId/matches`), pre-game field updates (`PATCH /matches/:matchId`, status
+limited to SCHEDULED↔IN_PROGRESS — not PLAYED), and the manual-result-entry endpoint (`PATCH
+/matches/:matchId/result`, flips `status` to `PLAYED`). New shared DTOs:
+`packages/shared/src/dto/{tournament,match}.dto.ts`.
+
+**RBAC decisions**: match create/update/result/delete require `CLUB_ADMIN`/`COACH` of *either* the
+home team's club *or* the away team's club (not both) — either side of a matchup can schedule and
+manage it. Tournament writes require `CLUB_ADMIN` of the `clubId` on the tournament; a clubless
+(multi-club, no single organizer) tournament can be created by any `CLUB_ADMIN` of *some* club, but
+only a superadmin can update/delete one once created (judgment call — a clubless tournament has no
+natural single owner to defer to).
+
+**Judgment calls**:
+- Deleting a `PLAYED` match is blocked for everyone except superadmin — a wrong result should be
+  *corrected* via another `PATCH .../result` call, not deleted and silently disappear from the
+  record. Verified live (see below): a coach got a real 400 trying to delete a played match.
+- `PATCH /matches/:matchId` (pre-game fields) explicitly refuses `status: PLAYED` in its zod
+  schema — that transition only happens through `/result`, so there's exactly one code path that
+  ever sets a match's score.
+- Frontend match-creation team pickers are scoped to clubs the current user belongs to (fetched
+  via the existing `useClubs()`/`useTeamsForClub()` hooks from Phase 1) for *both* home and away
+  sides — not a global "any team in the system" picker, since no cross-club "list all teams"
+  read endpoint exists yet (only `GET /clubs/:clubId/teams`). This is a real UI limitation (you
+  can't schedule against an opponent club you have no membership in) even though the *backend*
+  RBAC only requires a role in one of the two clubs. A global team-browse endpoint (mirroring
+  the open-read pattern already used for `PlayersModule`/`TournamentsModule`) would remove this
+  limitation — worth adding in a later phase if cross-club match scheduling from the UI turns out
+  to matter; not added now since it wasn't asked for and would be scope creep on Phase 2.
+- The tournament detail page's "manage roster" links per participating team resolve each team's
+  `clubId` via a small `TeamRosterLink` subcomponent (calls the existing `useTeam(teamId)` hook)
+  rather than adding a new backend endpoint just to carry `clubId` alongside match data — kept the
+  API surface unchanged for this.
+- `TeamDetailPage` now reads an optional `?tournamentId=` query param to pre-select the roster
+  builder's tournament picker, so the tournament-detail page's roster links land on the right
+  tournament immediately instead of requiring a second manual selection.
+
+**Bug caught (and fixed) while writing unit tests**: `TournamentsService.create` wasn't declared
+`async`, so its synchronous `ForbiddenException` throws (RBAC rejection) were raised directly
+instead of being wrapped into a rejected promise — broke `rejects.toBeInstanceOf(...)`-style
+assertions in tests, and would have been equally surprising for any real caller doing
+`await tournamentsService.create(...).catch(...)` expecting a normal promise rejection. Fixed by
+adding `async`. `apps/api` test count: **20/20 passing** (12 new: `matches.service.spec.ts` covers
+home/away role resolution, the played-match delete guard, and the result status flip;
+`tournaments.service.spec.ts` covers the club-scoped vs. clubless-tournament RBAC).
+
+**Verified against the live stack (not just build-verified)** — both dev servers were already
+running from the prior session's manual-testing setup, confirmed the API had hot-reloaded the new
+modules (`GET /tournaments` returned `401 Unauthorized` rather than a 404, i.e. the route exists
+and is now guarded, versus Phase 1 where it was `@Public`-equivalent open). Via curl, logged in as
+seeded superadmin → created a second team under the seed club (`U18 Girls`, needed because the
+seed data only ships one team and a match needs two) → `POST
+/tournaments/seed-tournament-1/matches` (home: `seed-team-1`, away: the new team) → `PATCH
+.../result` with `{homeScore:21, awayScore:17, endType:REGULAR_TIME, homeTeamFouls:5,
+awayTeamFouls:8}` → `GET` the match back and confirmed the score/status/fouls all stuck
+(`status: "PLAYED"`). Then logged in as the seeded coach and confirmed `DELETE` on that now-played
+match is correctly rejected with `400` ("Cannot delete a played match — correct the result
+instead."). This is Phase 2's actual testable deliverable (tournament → match → manual result),
+confirmed working end-to-end.
+
+### Phase 2 — frontend (`apps/web`)
+
+New routes (behind `RequireAuth`, linked from `NavBar`): `/tournaments` (list + create, visible to
+any `CLUB_ADMIN`), `/tournaments/:tournamentId` (detail: matches list, schedule-a-match form with
+cascading home/away club→team pickers, and roster-builder deep links per participating team),
+`/matches/:matchId` (result entry/edit, gated client-side by `CLUB_ADMIN`/`COACH` of either team's
+club — same "UI conditionality mirrors backend RBAC, backend stays the real authority" pattern as
+Phase 1). New feature folders: `features/tournaments/pages/{TournamentsListPage,
+TournamentDetailPage}.tsx`, `features/matches/{api.ts,pages/MatchDetailPage.tsx}`.
+
+Vitest+RTL tests added: `TournamentDetailPage.test.tsx` (select home/away club+team, submit,
+confirm the match appears and both teams' roster-links resolve) and `MatchDetailPage.test.tsx`
+(submit a result, confirm the status flips to PLAYED and the score renders). Both needed
+`authStorage.setTokens(...)` set before rendering plus a mocked `/users/me` — unlike Phase 1's
+`TeamDetailPage`, these pages call `useCurrentUser()` for RBAC gating, and that query is
+`enabled: Boolean(accessToken)`, so without a token in `localStorage` the gated forms never render
+and the tests would silently test nothing. Also caught a stale-`defaultValues` bug of its own kind
+while building `MatchDetailPage`: `useForm`'s `defaultValues` are captured once at mount, but
+`match` loads asynchronously and is still `undefined` on the first render — without a
+`useEffect(() => reset(...), [match])` (same fix `PlayerDetailPage` already used in Phase 1), the
+result-edit form would always show blank zeros instead of an already-recorded result's real
+values. Caught by re-reading the Phase 1 pattern before writing this page, not by a failing test —
+worth flagging as a recurring shape (any form editing async-loaded data needs this). `apps/web`
+test count: **12/12 passing** (6 test files).
+
+**Not verified**: an actual browser click-through — the Chrome browser extension was still not
+connected in this session either (`tabs_context_mcp` returned the same "Browser extension is not
+connected" as Phase 1), so this remains open across two phases now. Both `pnpm --filter api dev`
+and `pnpm --filter web dev` are running (started in a prior session), so a manual click-through is
+just a browser tab away whenever the extension is connected — worth doing before Phase 3 adds a
+much harder-to-component-test video/tagging UI.
+
+**Not built (explicitly out of scope for Phase 2, per the plan file)**: anything video/tagging/
+stats/clips-related; a global cross-club "browse all teams" endpoint (see judgment-calls note
+above — the match-scheduling team pickers are club-membership-scoped as a result).
 
 ### Phase 1 — backend (`apps/api`)
 
@@ -289,7 +389,7 @@ While waiting on Docker, closed two of the three gaps `apps/web` had flagged as 
 2. **Phase 1 — Club/Team/Player/Roster CRUD** *(done)*: full CRUD + list/detail screens, club user
    invite flow, basic scouting filters (club/city/age). *Testable: club admin invites a coach,
    coach builds a roster.*
-3. **Phase 2 — Tournament/Match CRUD** *(current)*: manual match result entry independent of video,
+3. **Phase 2 — Tournament/Match CRUD** *(done)*: manual match result entry independent of video,
    roster-per-tournament wired to real tournaments. *Testable: full non-video loop.*
 4. **Phase 3 — Video upload + tagging UI**: `VideoModule`, `TagsModule`, both player adapters,
    keyboard-shortcut tagging, match lock (status flip only, no jobs yet). *Testable: tag a match
@@ -410,13 +510,13 @@ Player self-service login.
 
 ## Immediate next steps (in order)
 
-Phase 0 and Phase 1 are both done (see "Where we are right now" at the top of this file).
-Remaining:
+Phases 0, 1, and 2 are all done (see "Where we are right now" at the top of this file). Remaining:
 
-1. If the Chrome browser extension is available next session, do an actual manual click-through
-   of the Phase 1 screens (`/clubs`, `/clubs/:clubId`, `/clubs/:clubId/teams/:teamId`, `/players`,
-   `/players/:playerId`, `/register`) — this session verified the backend against the real live
-   stack and the frontend via component tests, but never a real browser against real running dev
-   servers, because the extension wasn't connected.
-2. Move to Phase 2 (Tournament/Match CRUD — manual match result entry independent of video,
-   roster-per-tournament wired to *real* Tournament CRUD instead of Phase 1's read-only stub).
+1. If the Chrome browser extension is available next session, do an actual manual click-through of
+   both Phase 1's screens (`/clubs`, `/clubs/:clubId`, `/clubs/:clubId/teams/:teamId`, `/players`,
+   `/players/:playerId`, `/register`) and Phase 2's (`/tournaments`, `/tournaments/:tournamentId`,
+   `/matches/:matchId`) — two sessions in a row verified backend against the real live stack and
+   frontend via component tests, but never a real browser against real running dev servers,
+   because the extension wasn't connected either time. Both dev servers are already running.
+2. Move to Phase 3 (Video upload + tagging UI — `VideoModule`, `TagsModule`, both player adapters,
+   keyboard-shortcut tagging, match lock as a status-flip only, no background jobs yet).
