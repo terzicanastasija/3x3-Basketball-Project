@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -121,6 +121,32 @@ describe("TaggingPage — VideoPlayerAdapter parity", () => {
 
     await waitFor(() => expect(createdTags).toHaveLength(1));
     expect(createdTags[0]).toMatchObject({ actionType: "ASSIST", timestampSec: 42.5, teamId: "team-home" });
+  });
+
+  it("uses a manual [ / ] in-out mark as the clip window instead of the auto padding", async () => {
+    const createdTags: Record<string, unknown>[] = [];
+    mockCommonFetch({ id: "video-1", sourceType: "FILE", fileKey: "matches/match-1/x.mp4" }, createdTags);
+    renderTaggingPage();
+
+    const video = (await screen.findByTestId("video-player-file")) as HTMLVideoElement;
+    video.currentTime = 10;
+    video.dispatchEvent(new Event("loadedmetadata"));
+
+    // userEvent.keyboard() treats "[" as key-descriptor syntax, not a literal keypress — dispatch
+    // the raw keydown directly instead, same as the app's window-level listener actually receives.
+    video.currentTime = 8;
+    fireEvent.keyDown(window, { key: "[" });
+    video.currentTime = 14;
+    fireEvent.keyDown(window, { key: "]" });
+
+    const assistButton = (await screen.findByRole("button", {
+      name: /assist|asistencija/i,
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(assistButton.disabled).toBe(false));
+    await userEvent.click(assistButton);
+
+    await waitFor(() => expect(createdTags).toHaveLength(1));
+    expect(createdTags[0]).toMatchObject({ actionType: "ASSIST", clipInSec: 8, clipOutSec: 14 });
   });
 
   it("captures the adapter's current time when tagging against a YouTube video", async () => {

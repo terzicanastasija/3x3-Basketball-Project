@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "ActionTag" ADD COLUMN     "clipInSec" DOUBLE PRECISION,
+ADD COLUMN     "clipOutSec" DOUBLE PRECISION;

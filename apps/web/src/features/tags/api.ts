@@ -13,6 +13,8 @@ export interface ActionTag {
   relatedPlayerId: string | null;
   pointValue: number | null;
   isMade: boolean | null;
+  clipInSec: number | null;
+  clipOutSec: number | null;
 }
 
 function tagsKey(matchId: string) {

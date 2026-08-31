@@ -58,7 +58,7 @@ export class ClipGenerationWorker implements OnModuleInit, OnModuleDestroy {
 
       await this.s3.downloadVideoToFile(tag.videoAsset.fileKey, inputPath);
 
-      const { start, duration } = computeClipWindow(tag.timestampSec);
+      const { start, duration } = computeClipWindow(tag.timestampSec, tag.clipInSec, tag.clipOutSec);
       await runFfmpeg(inputPath, outputPath, start, duration);
 
       // Don't trust the process exit code alone (Phase 4 already taught this project that

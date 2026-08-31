@@ -39,6 +39,8 @@ export class TagsService {
         playerId: dto.playerId,
         relatedPlayerId: dto.relatedPlayerId,
         isMade: dto.isMade,
+        clipInSec: dto.clipInSec,
+        clipOutSec: dto.clipOutSec,
         // Never trust a client-supplied point value — always derive it server-side.
         pointValue: pointValueForActionType(dto.actionType),
         createdById: user.id,

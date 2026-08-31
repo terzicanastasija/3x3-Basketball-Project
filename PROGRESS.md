@@ -11,6 +11,73 @@ needs more detail than this file gives).
 
 ---
 
+## Post-MVP: Synergy-style manual clip in/out marking (2026-08-31, after MVP completion)
+
+User asked for Synergy Sports-style clip marking: press a key to mark a clip's start, keep
+watching, press another key to mark its end, then tag the action — that exact window becomes
+the clip, instead of always relying on the automatic 5s-before/3s-after padding. Confirmed with
+the user: `[` marks in, `]` marks out (not literal "I"/"O" — `o` was already the Offensive
+Rebound hotkey); the auto window stays as the fallback when no marks are set, it doesn't go away.
+
+**Backend**: `ActionTag` gained two nullable columns, `clipInSec`/`clipOutSec` (migration
+`20260831141643_action_tag_clip_window`) — set together or not at all, enforced by a zod
+`superRefine` on `createTagSchema`/`updateTagSchema` in `packages/shared` (also requires
+`clipOutSec > clipInSec`). `computeClipWindow()` (`clip-window.ts`) now prefers an explicit
+mark over the automatic padding when both are present, clamping a negative in-point to 0 exactly
+like the automatic window already did. Every clip-per-tag/unique-ID guarantee from Phase 5 is
+unchanged — this only changes which window ffmpeg cuts, not the one-clip-per-tag model that was
+already in place (that part of the user's ask — "each [clip] has a separate ID so a person can
+exactly mark which action was played, who played it" — was already true before this change).
+
+**Frontend**: `TaggingPage` adds `markIn()`/`markOut()` (bound to `[`/`]` in the existing
+window-level hotkey listener, plus visible "Mark in"/"Mark out" buttons mirroring the existing
+action-type button+hotkey pattern) and a live "In: Xs" / "In: Xs – Out: Ys" indicator with a
+Clear control. When an action type is picked with both marks set, `clipInSec`/`clipOutSec` ride
+along in the `createTag`/`updateTag` payload (edit flow reuses the same marks behind a
+"Use marked in/out for the clip window" checkbox, mirroring `recaptureTimestamp`'s pattern).
+Marks reset after each tag so the next one starts clean. The tag list shows a
+"Clip: Xs – Ys" indicator whenever a tag carries a manual window, so it's visually distinguishable
+from an auto-windowed one — closing the "clearly mark which action" half of the ask.
+
+**A real bug caught by the frontend test suite itself, not manual testing**: the new tag-list
+clip-window indicator originally checked `tag.clipInSec !== null` — but the existing
+`TaggingPage.test.tsx` fixtures (predating this change) don't set that field at all, so it came
+through as `undefined`, and `undefined !== null` is `true` — the guard passed, then
+`tag.clipInSec.toFixed(1)` threw on `undefined`, crashing the whole page in two unrelated
+existing tests. Fixed by switching the guard to `typeof tag.clipInSec === "number"`, which is
+correct regardless of whether the API/mocks send `null` or omit the field entirely.
+
+**Verified with concrete evidence, not just code review**:
+- Backend, via direct API calls against the real running stack: uploaded a real video, created a
+  tag with `clipInSec: 2, clipOutSec: 11` (a 9s window, deliberately different from the 8s auto
+  default so the result is unambiguous), waited for the real ffmpeg job, downloaded the actual
+  clip bytes, and ran `ffprobe` on them — **reported duration 9.13s**, matching the manual window
+  (not the 8s default), the small drift being the same accepted `-c copy` keyframe-snap tradeoff
+  already documented in Phase 5.
+- Frontend, in a real connected browser: confirmed the tag list correctly renders
+  "Clip: 2.0s – 11.0s" for that API-created tag; clicking the real "Mark in" button correctly
+  showed the "In: 0.0s — press ] to mark out" indicator and enabled "Mark out"; clicking "Mark
+  out" before the video's time had actually advanced was correctly rejected by the
+  `t > markedInSec` guard (no false-positive 0-length window) — a genuine positive confirmation
+  of the validation working, not a bug.
+- 68 backend unit tests pass (7 new: DTO validation + clip-window math with an explicit mark), 19
+  frontend tests pass (1 new: a full `[`/`]` mark → tag-creation flow via `fireEvent.keyDown`,
+  asserting the created tag's payload carries the exact marked window).
+
+**Known gap, honestly flagged, not silently skipped**: a full literal-keypress, real-video-time-
+elapsing click-through was attempted but blocked by this session's automated browser environment
+— native `<video>` playback never left `readyState: 0` despite the exact same presigned URL
+being independently confirmed fetchable via a direct `curl` (200, correct byte count), and the
+YouTube embed's play button didn't produce real elapsed time either. Both symptoms match this
+session's earlier-observed video-decode-related tab instability (see the Phase 3-era note below
+about a tab freeze), not anything about this feature's code — every piece of actual application
+logic involved (DTO validation, clip-window math, hotkey wiring, button-driven mark/clear, guard
+correctness, list rendering) was independently verified through means that don't depend on real
+video decode. Worth a literal hotkey-during-real-playback pass next session if a more stable
+browser environment is available.
+
+---
+
 ## MVP COMPLETE — all 6 phases of the plan file are done (2026-08-31)
 
 The full "build first" loop the plan file's intro describes — **upload/link video → tag → lock →

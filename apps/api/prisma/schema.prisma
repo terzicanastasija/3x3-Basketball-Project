@@ -328,6 +328,8 @@ model ActionTag {
   relatedPlayerId String? // assist passer / blocker / stolen-from opponent
   pointValue      Int? // 1 or 2 only — enforced in the service layer AND a DB CHECK constraint
   isMade          Boolean? // for shot/FT actions; null for non-shot actions
+  clipInSec       Float? // manual Synergy-style in-point; overrides the auto 5s/3s clip window
+  clipOutSec      Float? // manual out-point — set together with clipInSec, never alone
   createdById     String
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt

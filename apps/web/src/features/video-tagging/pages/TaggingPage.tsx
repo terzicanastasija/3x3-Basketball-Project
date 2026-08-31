@@ -56,6 +56,31 @@ export function TaggingPage() {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [recaptureTimestamp, setRecaptureTimestamp] = useState(false);
 
+  // Synergy-style manual clip window: "[" marks in, "]" marks out, both captured from the
+  // adapter's current time. When both are set at the moment an action type is picked, they
+  // override the automatic 5s-before/3s-after clip window instead of just anchoring it.
+  const [markedInSec, setMarkedInSec] = useState<number | null>(null);
+  const [markedOutSec, setMarkedOutSec] = useState<number | null>(null);
+  const [useMarkedWindow, setUseMarkedWindow] = useState(false);
+
+  function markIn() {
+    if (isLocked) return;
+    setMarkedInSec(adapterRef.current?.getCurrentTime() ?? 0);
+    setMarkedOutSec(null);
+  }
+
+  function markOut() {
+    if (isLocked || markedInSec === null) return;
+    const t = adapterRef.current?.getCurrentTime() ?? 0;
+    if (t <= markedInSec) return;
+    setMarkedOutSec(t);
+  }
+
+  function clearMark() {
+    setMarkedInSec(null);
+    setMarkedOutSec(null);
+  }
+
   useEffect(() => {
     if (match && !selectedTeamId) setSelectedTeamId(match.homeTeamId);
   }, [match, selectedTeamId]);
@@ -108,6 +133,8 @@ export function TaggingPage() {
     const isMade = actionType.endsWith("_MADE") ? true : actionType.endsWith("_MISSED") ? false : undefined;
     const relatedAllowed = ACTION_TYPES_WITH_RELATED_PLAYER.includes(actionType);
 
+    const hasMarkedWindow = markedInSec !== null && markedOutSec !== null;
+
     if (editingTagId) {
       updateTag.mutate({
         tagId: editingTagId,
@@ -117,10 +144,15 @@ export function TaggingPage() {
           relatedPlayerId: relatedAllowed ? selectedRelatedPlayerId || null : null,
           isMade,
           ...(recaptureTimestamp ? { timestampSec } : {}),
+          ...(useMarkedWindow && hasMarkedWindow
+            ? { clipInSec: markedInSec ?? undefined, clipOutSec: markedOutSec ?? undefined }
+            : {}),
         },
       });
       setEditingTagId(null);
       setRecaptureTimestamp(false);
+      setUseMarkedWindow(false);
+      clearMark();
       return;
     }
 
@@ -132,12 +164,24 @@ export function TaggingPage() {
       playerId: selectedPlayerId || undefined,
       relatedPlayerId: relatedAllowed ? selectedRelatedPlayerId || undefined : undefined,
       isMade,
+      ...(hasMarkedWindow ? { clipInSec: markedInSec ?? undefined, clipOutSec: markedOutSec ?? undefined } : {}),
     });
+    clearMark();
   }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (isTypingTarget(e.target) || isLocked) return;
+      if (e.key === "[") {
+        e.preventDefault();
+        markIn();
+        return;
+      }
+      if (e.key === "]") {
+        e.preventDefault();
+        markOut();
+        return;
+      }
       const actionType = HOTKEY_TO_ACTION_TYPE[e.key];
       if (actionType) {
         e.preventDefault();
@@ -147,7 +191,18 @@ export function TaggingPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLocked, editingTagId, selectedTeamId, selectedPlayerId, selectedRelatedPlayerId, selectedVideoId, recaptureTimestamp]);
+  }, [
+    isLocked,
+    editingTagId,
+    selectedTeamId,
+    selectedPlayerId,
+    selectedRelatedPlayerId,
+    selectedVideoId,
+    recaptureTimestamp,
+    markedInSec,
+    markedOutSec,
+    useMarkedWindow,
+  ]);
 
   function startEditing(tagId: string) {
     const tag = tags?.find((t) => t.id === tagId);
@@ -157,6 +212,8 @@ export function TaggingPage() {
     setSelectedPlayerId(tag.playerId ?? "");
     setSelectedRelatedPlayerId(tag.relatedPlayerId ?? "");
     setRecaptureTimestamp(false);
+    setUseMarkedWindow(false);
+    clearMark();
   }
 
   if (matchLoading) return <p>{t("home.loading")}</p>;
@@ -243,6 +300,31 @@ export function TaggingPage() {
               </label>
             </div>
 
+            <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={markIn} disabled={isLocked || !adapterReady} title={t("tagging.markInHint")}>
+                {t("tagging.markIn")} ([)
+              </button>
+              <button
+                onClick={markOut}
+                disabled={isLocked || !adapterReady || markedInSec === null}
+                title={t("tagging.markOutHint")}
+              >
+                {t("tagging.markOut")} (])
+              </button>
+              {markedInSec !== null && markedOutSec !== null && (
+                <span>
+                  {t("tagging.clipWindowMarked", { in: markedInSec.toFixed(1), out: markedOutSec.toFixed(1) })}{" "}
+                  <button onClick={clearMark}>{t("tagging.clearMark")}</button>
+                </span>
+              )}
+              {markedInSec !== null && markedOutSec === null && (
+                <span>
+                  {t("tagging.clipWindowInOnly", { in: markedInSec.toFixed(1) })}{" "}
+                  <button onClick={clearMark}>{t("tagging.clearMark")}</button>
+                </span>
+              )}
+            </div>
+
             {editingTagId && (
               <p style={{ background: "#eef", padding: 8 }}>
                 {t("tagging.editingHint")}
@@ -253,6 +335,15 @@ export function TaggingPage() {
                     onChange={(e) => setRecaptureTimestamp(e.target.checked)}
                   />
                   {t("tagging.recaptureTimestamp")}
+                </label>
+                <label style={{ display: "block" }}>
+                  <input
+                    type="checkbox"
+                    checked={useMarkedWindow}
+                    disabled={markedInSec === null || markedOutSec === null}
+                    onChange={(e) => setUseMarkedWindow(e.target.checked)}
+                  />
+                  {t("tagging.useMarkedWindow")}
                 </label>
                 <button onClick={() => setEditingTagId(null)}>{t("tagging.cancelEdit")}</button>
               </p>
@@ -288,6 +379,9 @@ export function TaggingPage() {
                   />{" "}
                   {tag.timestampSec.toFixed(1)}s — {t(ACTION_TYPE_I18N_KEY[tag.actionType])}
                   {tag.pointValue ? ` (+${tag.pointValue})` : ""}
+                  {typeof tag.clipInSec === "number" && typeof tag.clipOutSec === "number"
+                    ? ` — ${t("tagging.clipWindowMarked", { in: tag.clipInSec.toFixed(1), out: tag.clipOutSec.toFixed(1) })}`
+                    : ""}
                 </label>
                 <ClipBadge tagId={tag.id} />{" "}
                 {!isLocked && (
