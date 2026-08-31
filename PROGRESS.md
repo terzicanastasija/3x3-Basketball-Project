@@ -13,9 +13,126 @@ needs more detail than this file gives).
 
 ## Where we are right now
 
-**Phase 2 — Tournament/Match CRUD — DONE.** Phases 0 and 1 are done (see below). This session
-(2026-08-31, same day, later still) built and verified Phase 2 end-to-end: create a tournament,
-schedule a match between two teams, record a manual result, confirm it stuck.
+**Phase 3 — Video upload + tagging UI — DONE.** Phases 0-2 are done (see below). This session
+(2026-08-31, later still) built and verified Phase 3 end-to-end: register a video against a match
+both ways (uploaded file via presigned MinIO URL, and a YouTube link), tag actions against it with
+keyboard shortcuts, edit/delete pre-lock, lock the match, confirm further tag mutations are
+rejected once locked.
+
+### Phase 3 — backend (`apps/api`)
+
+New modules wired into `app.module.ts`: `VideoModule` (`src/modules/video/`) and `TagsModule`
+(`src/modules/tags/`). Added `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` (first module
+needing an AWS SDK) behind a small `S3Service` (`src/common/s3/s3.service.ts`) wrapping a
+path-style `S3Client` pointed at MinIO via the already-existing `S3_*` env vars.
+
+**VideoModule**: `POST /matches/:matchId/videos/upload-url` generates a presigned PUT URL for a
+`fileKey` namespaced `matches/:matchId/<uuid>-<fileName>` (collision-proof across matches and
+across repeated uploads of the same filename — covered by a unit test); the browser PUTs the raw
+file bytes straight to MinIO, then `POST /matches/:matchId/videos` registers the `VideoAsset` row
+(FILE or EXTERNAL via a discriminated-union zod schema). `GET /videos/:videoAssetId/playback-url`
+returns a presigned GET URL for FILE sources or the raw `externalUrl` for EXTERNAL (no signing
+needed for YouTube). `DELETE /videos/:videoAssetId` is blocked if any `ActionTag` already
+references it. Role check mirrors `MatchesModule`'s: `CLUB_ADMIN`/`COACH` of the match's home or
+away team's club, or superadmin.
+
+**TagsModule**: `ActionTag` CRUD scoped to a match's home/away club. **`pointValue` is always
+derived server-side** from `actionType` via the existing `pointValueForActionType()` helper —
+the create/update DTOs don't even accept a client-supplied value being trusted; verified live that
+a request smuggling `pointValue: 99` alongside `SHOT_2PT_MADE` still persists `pointValue: 2`.
+All mutations (create/update/delete) are rejected once `match.lockedAt` is set. `POST
+/matches/:matchId/lock` sets `lockedAt = now()`; deliberately does **not** touch
+`match.status`/scores — Phase 2's manual-result path and this tagging path are parallel, not
+sequential (a match can be tagged without ever having a manual result entered, and vice versa).
+Locking is idempotent — locking an already-locked match is a no-op, not an error, so a coach
+re-clicking "Lock match" never sees a failure.
+
+New shared DTOs: `packages/shared/src/dto/{video,tag}.dto.ts`. 14 new backend unit tests (35/35
+total passing) covering the lock-blocks-mutation guard, server-side point-value derivation
+(including the "malicious client" case), presigned-key collision-freedom, and the
+delete-blocked-while-tagged guard.
+
+### Phase 3 — frontend (`apps/web`)
+
+**`VideoPlayerAdapter`** (`features/video-tagging/player/`) — the core abstraction from the plan
+file: `getCurrentTime/seekTo/play/pause/setPlaybackRate/getDuration/onTimeUpdate/onReady/destroy`.
+Two implementations: `Html5VideoAdapter` (wraps a native `<video>`) and `YouTubeAdapter` (wraps
+the YouTube IFrame Player API, polling `getCurrentTime()` every 250ms since YouTube has no native
+`timeupdate` event). `VideoPlayer.tsx` is a small factory component — the *only* place in the app
+that branches on `sourceType`; everything else (the tagging screen) only ever holds a
+`VideoPlayerAdapter` reference.
+
+**Real bug caught by writing a genuine adapter-parity test** (`TaggingPage.test.tsx` renders the
+real tagging screen against a mocked jsdom `<video>` for FILE and a stubbed `window.YT.Player` for
+EXTERNAL, asserting a hotkey press captures the *adapter's* current time identically through
+both): the YouTube IFrame API doesn't nest its `<iframe>` inside the element you hand it — it
+**replaces** that element in the DOM outright. Passing it the React-managed `containerRef`
+directly meant YouTube silently tore that node out of the tree behind React's back; the symptom
+was a permanently blank video pane with 0 DOM children even though the network request for the
+embed itself succeeded (caught in real-browser testing, not just the unit test — see below).
+Fixed in `VideoPlayer.tsx` by handing YouTube a plain, imperatively-created child `div` that React
+never owns or reconciles, confirmed live afterward (see below).
+
+Two more real gaps caught while building the tagging screen (fixed, not just noted):
+- `usePlayers()` had no `enabled` gate, so the tagging screen's club-roster fallback query fired
+  on *every* render even when a tournament roster already existed and made it moot. Added an
+  `enabled` option to `usePlayers`, gated to only fire when the active team truly has no roster
+  yet (and only once the roster query has actually settled, not mid-load).
+- `TaggingPage` never auto-selected an already-registered video — a coach returning to tag a
+  match would've had to re-pick it from a radio list on every single visit. Now auto-selects the
+  first video once the list loads if nothing's chosen yet.
+
+**Tagging screen** (`features/video-tagging/pages/TaggingPage.tsx`, route `/matches/:matchId/tag`,
+linked from `MatchDetailPage`): video registration/selection at the top (delegates to
+`features/video/VideoRegistrationPanel.tsx` — file upload via the presigned-URL flow, or a
+YouTube-link form), then a two-pane tagging layout once a video's selected — player on the left,
+team/player/related-player pickers and a 13-button action grid on the right, each button bound to
+the fixed hotkeys in `ACTION_TYPE_HOTKEYS` (already existed from Phase 0 scaffolding) via a
+`window.keydown` listener that ignores keystrokes while focus is inside any input/select/textarea.
+Player pickers prefer the match's tournament roster per team, falling back to the team's whole
+club roster if no roster's been built yet (judgment call — tagging should never be blocked on
+roster-building first). Tags list below is scrollable, editable (re-pick action type/player/
+related-player, with an explicit "use current video time" checkbox rather than silently
+overwriting the original timestamp) and deletable pre-lock, all controls disabled once locked. A
+sticky "Lock match" button flips to a disabled "Locked" state afterward. New `tagging` i18n
+namespace (sr/en), including per-`ActionType` labels matching the existing
+`ACTION_TYPE_I18N_KEY` constant's expected key shape.
+
+**Verified against the live stack (not just build-verified)** — restarted the API to pick up the
+new S3 SDK + modules, then via `curl` against the real running API + real MinIO: registered a
+YouTube link, requested a presigned upload URL, `PUT` real bytes to MinIO, registered the FILE
+`VideoAsset`, fetched its presigned playback URL and confirmed `curl`ing *that* URL actually
+returns the uploaded bytes back (full round-trip through real object storage, not mocked) — tagged
+a `SHOT_2PT_MADE` with a spoofed `pointValue: 99` in the request body and confirmed the stored row
+has `pointValue: 2` (server-derived, client value ignored) — tagged a non-shot `STEAL` and
+confirmed `pointValue: null` — edited and deleted tags pre-lock — locked the match and confirmed
+create/edit/delete all now correctly 400 — confirmed re-locking is a no-op — confirmed a video
+with no tags against it can be deleted (the has-tags-blocks-delete branch is unit-tested
+separately). This is Phase 3's actual testable deliverable, confirmed working end-to-end against
+real infrastructure, not assumed from code review.
+
+**Also real-browser-verified this session** (Chrome extension was connected) — clicked through the
+actual tagging screen: registered a YouTube link via the UI, watched the embedded player actually
+render (this is what caught the DOM-replacement bug above — first attempt showed a permanently
+blank pane), clicked an action button and watched a real tag appear in the list with the correct
+`(+2)` point value, deleted it via the UI, clicked "Lock match" and watched every control disable
+and the button switch to a greyed-out "Locked" state. `pnpm --filter @3x3/shared build`, `pnpm
+--filter api build`, `pnpm --filter web build` all pass clean; `pnpm --filter api test` (35/35) and
+the frontend Vitest suite (15/15, including the adapter-parity test) both green — all re-verified
+independently after the DOM-replacement fix, not just trusted from before it.
+
+**Not built (explicitly out of scope for Phase 3, per the plan file)**: stat computation/
+dashboards (Phase 4, including anything that reads `ActionTag` for aggregation), clip generation/
+BullMQ workers (Phase 5). `Match.lockedAt` now flips correctly but nothing downstream consumes it
+yet — that's exactly what Phase 4's `stat-recompute` trigger is for.
+
+---
+
+## Where we are (Phase 2)
+
+Phases 0-2 done. This session (2026-08-31, same day, earlier) built and verified Phase 2
+end-to-end: create a tournament, schedule a match between two teams, record a manual result,
+confirm it stuck.
 
 **Session update (2026-08-31, later still) — real browser click-through of Phases 1+2, not just
 component tests.** The Chrome extension connected this time, so every screen from both phases was
@@ -540,13 +657,16 @@ Player self-service login.
 
 ## Immediate next steps (in order)
 
-Phases 0, 1, and 2 are all done (see "Where we are right now" at the top of this file). Remaining:
+Phases 0-3 are all done (see "Where we are right now" at the top of this file). Remaining:
 
-1. If the Chrome browser extension is available next session, do an actual manual click-through of
-   both Phase 1's screens (`/clubs`, `/clubs/:clubId`, `/clubs/:clubId/teams/:teamId`, `/players`,
-   `/players/:playerId`, `/register`) and Phase 2's (`/tournaments`, `/tournaments/:tournamentId`,
-   `/matches/:matchId`) — two sessions in a row verified backend against the real live stack and
-   frontend via component tests, but never a real browser against real running dev servers,
-   because the extension wasn't connected either time. Both dev servers are already running.
-2. Move to Phase 3 (Video upload + tagging UI — `VideoModule`, `TagsModule`, both player adapters,
-   keyboard-shortcut tagging, match lock as a status-flip only, no background jobs yet).
+1. Move to Phase 4 (Stat computation + dashboards): introduce Redis/BullMQ (Redis is already
+   running in `infra/docker-compose.yml`, unused so far), a `stat-recompute` queue triggered on
+   `Match.lockedAt` being set (Phase 3 built the trigger point but nothing consumes it yet),
+   `StatsModule`/`DashboardsModule` computing `StatSnapshot` rows at MATCH→TOURNAMENT→CAREER scope
+   per the plan file's aggregation design, team/player/match dashboards reading only from
+   `StatSnapshot` (never live-aggregating `ActionTag`), and stat-threshold scouting search.
+   *Testable: locking a match populates dashboards; scouting search by PPG works.* Verify a
+   dashboard's numbers by hand against a small fixture match's tags before trusting the
+   aggregation pipeline on real data, per the plan file's verification guidance.
+2. Phase 3's `ClipJob`/`Compilation` models exist in the schema but nothing populates them yet —
+   that's Phase 5, after stats.
