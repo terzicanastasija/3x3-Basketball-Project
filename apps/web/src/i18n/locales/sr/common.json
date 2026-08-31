@@ -3,7 +3,8 @@
   "nav": {
     "home": "Početna",
     "clubs": "Klubovi",
-    "players": "Igrači"
+    "players": "Igrači",
+    "tournaments": "Turniri"
   },
   "auth": {
     "login": {
@@ -99,6 +100,55 @@
       "editSubmit": "Sačuvaj",
       "editError": "Čuvanje nije uspelo.",
       "editSuccess": "Sačuvano."
+    }
+  },
+  "tournaments": {
+    "title": "Turniri",
+    "empty": "Nema turnira.",
+    "notFound": "Turnir nije pronađen.",
+    "create": {
+      "title": "Novi turnir",
+      "name": "Naziv",
+      "startDate": "Datum početka",
+      "format": "Format",
+      "submit": "Kreiraj turnir",
+      "error": "Kreiranje turnira nije uspelo."
+    },
+    "detail": {
+      "matches": "Utakmice",
+      "noMatches": "Nema utakmica.",
+      "scheduled": "Zakazano",
+      "rosters": "Sastavi",
+      "manageRoster": "upravljaj sastavom",
+      "createMatch": "Zakaži utakmicu",
+      "homeClub": "Domaći klub",
+      "homeTeam": "Domaća ekipa",
+      "awayClub": "Gostujući klub",
+      "awayTeam": "Gostujuća ekipa",
+      "selectClub": "Izaberi klub",
+      "selectTeam": "Izaberi ekipu",
+      "matchTeamError": "Izaberi domaću ekipu i drugačiju gostujuću ekipu.",
+      "createMatchSubmit": "Zakaži utakmicu",
+      "createMatchError": "Zakazivanje utakmice nije uspelo."
+    }
+  },
+  "matches": {
+    "notFound": "Utakmica nije pronađena.",
+    "detail": {
+      "vs": "vs",
+      "status": "Status",
+      "result": "Rezultat",
+      "fouls": "Timski faulovi",
+      "recordResult": "Unesi rezultat",
+      "editResult": "Izmeni rezultat",
+      "homeScore": "Rezultat domaćih",
+      "awayScore": "Rezultat gostiju",
+      "homeFouls": "Faulovi domaćih",
+      "awayFouls": "Faulovi gostiju",
+      "endType": "Način završetka",
+      "validationError": "Rezultati i faulovi moraju biti nenegativni brojevi.",
+      "resultError": "Čuvanje rezultata nije uspelo.",
+      "submitResult": "Sačuvaj rezultat"
     }
   }
 }

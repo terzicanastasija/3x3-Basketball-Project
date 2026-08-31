@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { useTeam } from "../api";
@@ -17,7 +17,10 @@ export function TeamDetailPage() {
   const { teamId } = useParams<{ teamId: string; clubId: string }>();
   const { data: team, isLoading: teamLoading } = useTeam(teamId);
   const { data: tournaments } = useTournaments();
-  const [tournamentId, setTournamentId] = useState<string>("");
+  const [searchParams] = useSearchParams();
+  // Pre-selects the tournament when arriving via a "manage roster" link from the tournament
+  // detail page (?tournamentId=...); still freely changeable via the picker below.
+  const [tournamentId, setTournamentId] = useState<string>(searchParams.get("tournamentId") ?? "");
 
   const { data: roster, isLoading: rosterLoading } = useRoster(teamId, tournamentId || undefined);
   const createOrGetRoster = useCreateOrGetRoster(teamId ?? "");

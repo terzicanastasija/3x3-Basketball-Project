@@ -3,7 +3,8 @@
   "nav": {
     "home": "Home",
     "clubs": "Clubs",
-    "players": "Players"
+    "players": "Players",
+    "tournaments": "Tournaments"
   },
   "auth": {
     "login": {
@@ -99,6 +100,55 @@
       "editSubmit": "Save",
       "editError": "Save failed.",
       "editSuccess": "Saved."
+    }
+  },
+  "tournaments": {
+    "title": "Tournaments",
+    "empty": "No tournaments yet.",
+    "notFound": "Tournament not found.",
+    "create": {
+      "title": "New tournament",
+      "name": "Name",
+      "startDate": "Start date",
+      "format": "Format",
+      "submit": "Create tournament",
+      "error": "Failed to create tournament."
+    },
+    "detail": {
+      "matches": "Matches",
+      "noMatches": "No matches yet.",
+      "scheduled": "Scheduled",
+      "rosters": "Rosters",
+      "manageRoster": "manage roster",
+      "createMatch": "Schedule a match",
+      "homeClub": "Home club",
+      "homeTeam": "Home team",
+      "awayClub": "Away club",
+      "awayTeam": "Away team",
+      "selectClub": "Select a club",
+      "selectTeam": "Select a team",
+      "matchTeamError": "Select a home team and a different away team.",
+      "createMatchSubmit": "Schedule match",
+      "createMatchError": "Failed to schedule match."
+    }
+  },
+  "matches": {
+    "notFound": "Match not found.",
+    "detail": {
+      "vs": "vs",
+      "status": "Status",
+      "result": "Result",
+      "fouls": "Team fouls",
+      "recordResult": "Record result",
+      "editResult": "Edit result",
+      "homeScore": "Home score",
+      "awayScore": "Away score",
+      "homeFouls": "Home fouls",
+      "awayFouls": "Away fouls",
+      "endType": "End type",
+      "validationError": "Scores and fouls must be non-negative numbers.",
+      "resultError": "Failed to save result.",
+      "submitResult": "Save result"
     }
   }
 }

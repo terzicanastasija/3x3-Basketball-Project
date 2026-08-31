@@ -10,6 +10,7 @@ export function NavBar() {
         <Link to="/">{t("nav.home")}</Link>
         <Link to="/clubs">{t("nav.clubs")}</Link>
         <Link to="/players">{t("nav.players")}</Link>
+        <Link to="/tournaments">{t("nav.tournaments")}</Link>
       </nav>
       <LanguageSwitcher />
     </div>

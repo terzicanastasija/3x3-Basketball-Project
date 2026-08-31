@@ -7,6 +7,9 @@ import { ClubDetailPage } from "../features/clubs/pages/ClubDetailPage";
 import { TeamDetailPage } from "../features/teams/pages/TeamDetailPage";
 import { PlayersListPage } from "../features/players/pages/PlayersListPage";
 import { PlayerDetailPage } from "../features/players/pages/PlayerDetailPage";
+import { TournamentsListPage } from "../features/tournaments/pages/TournamentsListPage";
+import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
+import { MatchDetailPage } from "../features/matches/pages/MatchDetailPage";
 import { RequireAuth } from "./RequireAuth";
 
 export const router = createBrowserRouter([
@@ -57,6 +60,30 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <PlayerDetailPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/tournaments",
+    element: (
+      <RequireAuth>
+        <TournamentsListPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/tournaments/:tournamentId",
+    element: (
+      <RequireAuth>
+        <TournamentDetailPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/matches/:matchId",
+    element: (
+      <RequireAuth>
+        <MatchDetailPage />
       </RequireAuth>
     ),
   },
