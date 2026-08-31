@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { StatScope } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { statSnapshotUniqueWhere } from "../../common/prisma/stat-snapshot-key";
 
 @Injectable()
 export class DashboardsService {
@@ -22,32 +21,19 @@ export class DashboardsService {
 
   // Teams have no CAREER scope (see stats.service.ts) — a team dashboard is always scoped to
   // one tournament. Returns null if the team hasn't had a locked match in that tournament yet.
+  // findFirst, not findUnique — Prisma's compound-unique where() rejects null at runtime even
+  // though the columns/index are nullable (see stats.service.ts's upsertSnapshot for the same
+  // issue), and playerId/matchId are null here.
   teamDashboard(teamId: string, tournamentId: string) {
-    return this.prisma.statSnapshot.findUnique({
-      where: {
-        scopeType_playerId_teamId_matchId_tournamentId: statSnapshotUniqueWhere({
-          scopeType: StatScope.TOURNAMENT,
-          playerId: null,
-          teamId,
-          matchId: null,
-          tournamentId,
-        }),
-      },
+    return this.prisma.statSnapshot.findFirst({
+      where: { scopeType: StatScope.TOURNAMENT, playerId: null, teamId, matchId: null, tournamentId },
     });
   }
 
   async playerDashboard(playerId: string) {
     const [career, matches] = await Promise.all([
-      this.prisma.statSnapshot.findUnique({
-        where: {
-          scopeType_playerId_teamId_matchId_tournamentId: statSnapshotUniqueWhere({
-            scopeType: StatScope.CAREER,
-            playerId,
-            teamId: null,
-            matchId: null,
-            tournamentId: null,
-          }),
-        },
+      this.prisma.statSnapshot.findFirst({
+        where: { scopeType: StatScope.CAREER, playerId, teamId: null, matchId: null, tournamentId: null },
       }),
       this.prisma.statSnapshot.findMany({
         where: { scopeType: StatScope.MATCH, playerId },

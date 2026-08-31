@@ -2,10 +2,17 @@ import { Injectable } from "@nestjs/common";
 import { Prisma, StatScope } from "@prisma/client";
 import { ActionType } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { statSnapshotUniqueWhere, StatSnapshotKey } from "../../common/prisma/stat-snapshot-key";
 import { aggregateMatchTags, StatLine, sumStatLines } from "./stat-aggregation";
 
 type Tx = Prisma.TransactionClient;
+
+interface StatSnapshotKey {
+  scopeType: StatScope;
+  playerId: string | null;
+  teamId: string | null;
+  matchId: string | null;
+  tournamentId: string | null;
+}
 
 @Injectable()
 export class StatsService {
@@ -104,11 +111,24 @@ export class StatsService {
     );
   }
 
-  private upsertSnapshot(tx: Tx, key: StatSnapshotKey, line: StatLine) {
-    return tx.statSnapshot.upsert({
-      where: { scopeType_playerId_teamId_matchId_tournamentId: statSnapshotUniqueWhere(key) },
-      create: { ...key, ...line },
-      update: { ...line },
+  // Prisma's upsert() requires a compound-unique `where` with no nulls at runtime, even though
+  // the underlying columns/index are nullable — a known limitation, not just a type gap. So
+  // this does the upsert by hand: a plain findFirst (which handles null fine) followed by a
+  // create or an update-by-id.
+  private async upsertSnapshot(tx: Tx, key: StatSnapshotKey, line: StatLine) {
+    const existing = await tx.statSnapshot.findFirst({
+      where: {
+        scopeType: key.scopeType,
+        playerId: key.playerId,
+        teamId: key.teamId,
+        matchId: key.matchId,
+        tournamentId: key.tournamentId,
+      },
+      select: { id: true },
     });
+    if (existing) {
+      return tx.statSnapshot.update({ where: { id: existing.id }, data: { ...line } });
+    }
+    return tx.statSnapshot.create({ data: { ...key, ...line } });
   }
 }
