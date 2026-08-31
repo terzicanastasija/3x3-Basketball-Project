@@ -10,6 +10,7 @@ import { PlayerDetailPage } from "../features/players/pages/PlayerDetailPage";
 import { TournamentsListPage } from "../features/tournaments/pages/TournamentsListPage";
 import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
 import { MatchDetailPage } from "../features/matches/pages/MatchDetailPage";
+import { TaggingPage } from "../features/video-tagging/pages/TaggingPage";
 import { RequireAuth } from "./RequireAuth";
 
 export const router = createBrowserRouter([
@@ -84,6 +85,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <MatchDetailPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/matches/:matchId/tag",
+    element: (
+      <RequireAuth>
+        <TaggingPage />
       </RequireAuth>
     ),
   },

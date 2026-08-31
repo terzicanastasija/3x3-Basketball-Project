@@ -148,7 +148,51 @@
       "endType": "Način završetka",
       "validationError": "Rezultati i faulovi moraju biti nenegativni brojevi.",
       "resultError": "Čuvanje rezultata nije uspelo.",
-      "submitResult": "Sačuvaj rezultat"
+      "submitResult": "Sačuvaj rezultat",
+      "tagMatch": "Označi ovu utakmicu",
+      "viewTags": "Pregledaj oznake"
+    }
+  },
+  "tagging": {
+    "title": "Označavanje utakmice",
+    "locked": "Zaključano",
+    "team": "Ekipa",
+    "player": "Igrač",
+    "relatedPlayer": "Povezani igrač",
+    "selectPlayer": "Izaberi igrača",
+    "editingHint": "Izmena oznake — izaberi novi tip akcije da sačuvaš izmenu.",
+    "recaptureTimestamp": "Koristi trenutno vreme videa",
+    "cancelEdit": "Otkaži izmenu",
+    "hotkeyHint": "Taster",
+    "tagList": "Oznake",
+    "edit": "Izmeni",
+    "delete": "Obriši",
+    "noTags": "Još nema oznaka.",
+    "lockMatch": "Zaključaj utakmicu",
+    "video": {
+      "title": "Video",
+      "fileLabel": "Otpremljeni fajl",
+      "uploadFile": "Otpremi fajl",
+      "uploading": "Otpremanje...",
+      "uploadError": "Otpremanje nije uspelo.",
+      "youtubeUrl": "YouTube link",
+      "registerYoutube": "Dodaj YouTube link",
+      "changeVideo": "Promeni video"
+    },
+    "actionType": {
+      "SHOT_2PT_MADE": "Ubačena dvojka",
+      "SHOT_2PT_MISSED": "Promašena dvojka",
+      "SHOT_1PT_MADE": "Ubačena jedinica",
+      "SHOT_1PT_MISSED": "Promašena jedinica",
+      "FREE_THROW_MADE": "Pogođeno slobodno bacanje",
+      "FREE_THROW_MISSED": "Promašeno slobodno bacanje",
+      "OFFENSIVE_REBOUND": "Napadački skok",
+      "DEFENSIVE_REBOUND": "Odbrambeni skok",
+      "ASSIST": "Asistencija",
+      "TURNOVER": "Izgubljena lopta",
+      "STEAL": "Ukradena lopta",
+      "BLOCK": "Blokada",
+      "PERSONAL_FOUL": "Lični faul"
     }
   }
 }

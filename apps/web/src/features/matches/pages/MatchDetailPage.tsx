@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { MatchEndType, recordMatchResultSchema, RecordMatchResultDto, Role } from "@3x3/shared";
@@ -73,6 +73,11 @@ export function MatchDetailPage() {
       </h1>
       <p>{t("matches.detail.status")}: {match.status}</p>
       {match.scheduledAt && <p>{new Date(match.scheduledAt).toLocaleString()}</p>}
+      <p>
+        <Link to={`/matches/${match.id}/tag`}>
+          {match.lockedAt ? t("matches.detail.viewTags") : t("matches.detail.tagMatch")}
+        </Link>
+      </p>
 
       {isPlayed && (
         <div style={{ marginTop: 16 }}>

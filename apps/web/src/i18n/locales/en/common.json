@@ -148,7 +148,51 @@
       "endType": "End type",
       "validationError": "Scores and fouls must be non-negative numbers.",
       "resultError": "Failed to save result.",
-      "submitResult": "Save result"
+      "submitResult": "Save result",
+      "tagMatch": "Tag this match",
+      "viewTags": "View tags"
+    }
+  },
+  "tagging": {
+    "title": "Tag match",
+    "locked": "Locked",
+    "team": "Team",
+    "player": "Player",
+    "relatedPlayer": "Related player",
+    "selectPlayer": "Select a player",
+    "editingHint": "Editing a tag — pick a new action type to save the change.",
+    "recaptureTimestamp": "Use current video time",
+    "cancelEdit": "Cancel edit",
+    "hotkeyHint": "Key",
+    "tagList": "Tags",
+    "edit": "Edit",
+    "delete": "Delete",
+    "noTags": "No tags yet.",
+    "lockMatch": "Lock match",
+    "video": {
+      "title": "Video",
+      "fileLabel": "Uploaded file",
+      "uploadFile": "Upload a file",
+      "uploading": "Uploading...",
+      "uploadError": "Upload failed.",
+      "youtubeUrl": "YouTube URL",
+      "registerYoutube": "Add YouTube link",
+      "changeVideo": "Change video"
+    },
+    "actionType": {
+      "SHOT_2PT_MADE": "2pt made",
+      "SHOT_2PT_MISSED": "2pt missed",
+      "SHOT_1PT_MADE": "1pt made",
+      "SHOT_1PT_MISSED": "1pt missed",
+      "FREE_THROW_MADE": "Free throw made",
+      "FREE_THROW_MISSED": "Free throw missed",
+      "OFFENSIVE_REBOUND": "Offensive rebound",
+      "DEFENSIVE_REBOUND": "Defensive rebound",
+      "ASSIST": "Assist",
+      "TURNOVER": "Turnover",
+      "STEAL": "Steal",
+      "BLOCK": "Block",
+      "PERSONAL_FOUL": "Personal foul"
     }
   }
 }

@@ -14,6 +14,7 @@ export interface Match {
   awayScore: number | null;
   homeTeamFouls: number;
   awayTeamFouls: number;
+  lockedAt: string | null;
 }
 
 function matchKey(matchId: string) {
