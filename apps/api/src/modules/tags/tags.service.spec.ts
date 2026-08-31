@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
-import { ActionType, Role } from "@3x3/shared";
+import { ActionType, Role, VideoSourceType } from "@3x3/shared";
 import { TagsService } from "./tags.service";
 import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
 
@@ -7,11 +7,17 @@ function makePrismaMock() {
   return {
     actionTag: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
     match: { findUnique: jest.fn(), update: jest.fn() },
+    videoAsset: { findUnique: jest.fn() },
+    clipJob: { create: jest.fn() },
   };
 }
 
 function makeQueueMock() {
   return { enqueueMatchRecompute: jest.fn() };
+}
+
+function makeClipQueueMock() {
+  return { enqueueClipGeneration: jest.fn() };
 }
 
 const coachUser: AuthenticatedUser = { id: "user-1", email: "coach@test.local", isSuperadmin: false };
@@ -40,7 +46,7 @@ describe("TagsService.create", () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await service.create(coachUser, homeClubCoachContext, "match-1", {
       timestampSec: 12.5,
@@ -59,7 +65,7 @@ describe("TagsService.create", () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await service.create(coachUser, homeClubCoachContext, "match-1", {
       timestampSec: 5,
@@ -75,7 +81,7 @@ describe("TagsService.create", () => {
   it("rejects a teamId that isn't the match's home or away team", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await expect(
       service.create(coachUser, homeClubCoachContext, "match-1", {
@@ -89,7 +95,7 @@ describe("TagsService.create", () => {
   it("rejects creating a tag once the match is locked", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await expect(
       service.create(coachUser, homeClubCoachContext, "match-1", {
@@ -104,7 +110,7 @@ describe("TagsService.create", () => {
   it("rejects a caller with no role in either team's club", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
     const outsiderContext: ClubContext = { accessibleClubIds: ["club-other"], roleByClubId: {} };
 
     await expect(
@@ -115,6 +121,62 @@ describe("TagsService.create", () => {
       })
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it("creates a ClipJob and enqueues clip generation for a FILE-source tag", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
+    prisma.videoAsset.findUnique.mockResolvedValue({ sourceType: VideoSourceType.FILE });
+    const clipQueue = makeClipQueueMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, clipQueue as never);
+
+    await service.create(coachUser, homeClubCoachContext, "match-1", {
+      timestampSec: 5,
+      actionType: ActionType.SHOT_2PT_MADE,
+      teamId: "team-home",
+      videoAssetId: "video-1",
+    });
+
+    expect(prisma.clipJob.create).toHaveBeenCalledWith({ data: { actionTagId: "tag-1" } });
+    expect(clipQueue.enqueueClipGeneration).toHaveBeenCalledWith("tag-1");
+  });
+
+  it("never creates a ClipJob for an EXTERNAL-source (YouTube) tag", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
+    prisma.videoAsset.findUnique.mockResolvedValue({ sourceType: VideoSourceType.EXTERNAL });
+    const clipQueue = makeClipQueueMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, clipQueue as never);
+
+    await service.create(coachUser, homeClubCoachContext, "match-1", {
+      timestampSec: 5,
+      actionType: ActionType.SHOT_2PT_MADE,
+      teamId: "team-home",
+      videoAssetId: "video-1",
+    });
+
+    expect(prisma.clipJob.create).not.toHaveBeenCalled();
+    expect(clipQueue.enqueueClipGeneration).not.toHaveBeenCalled();
+  });
+
+  it("never creates a ClipJob when the tag has no videoAssetId at all", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
+    const clipQueue = makeClipQueueMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, clipQueue as never);
+
+    await service.create(coachUser, homeClubCoachContext, "match-1", {
+      timestampSec: 5,
+      actionType: ActionType.STEAL,
+      teamId: "team-home",
+    });
+
+    expect(prisma.videoAsset.findUnique).not.toHaveBeenCalled();
+    expect(prisma.clipJob.create).not.toHaveBeenCalled();
+    expect(clipQueue.enqueueClipGeneration).not.toHaveBeenCalled();
+  });
 });
 
 describe("TagsService.update / remove", () => {
@@ -122,7 +184,7 @@ describe("TagsService.update / remove", () => {
     const prisma = makePrismaMock();
     prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await expect(
       service.update(coachUser, homeClubCoachContext, "tag-1", { timestampSec: 10 })
@@ -134,7 +196,7 @@ describe("TagsService.update / remove", () => {
     const prisma = makePrismaMock();
     prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await expect(service.remove(coachUser, homeClubCoachContext, "tag-1")).rejects.toBeInstanceOf(
       BadRequestException
@@ -147,7 +209,7 @@ describe("TagsService.update / remove", () => {
     prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.actionTag.update.mockResolvedValue({ id: "tag-1" });
-    const service = new TagsService(prisma as never, makeQueueMock() as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await service.update(coachUser, homeClubCoachContext, "tag-1", { timestampSec: 10 });
     await service.remove(coachUser, homeClubCoachContext, "tag-1");
@@ -163,7 +225,7 @@ describe("TagsService.lockMatch", () => {
     const queue = makeQueueMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.match.update.mockResolvedValue({ id: "match-1", lockedAt: new Date() });
-    const service = new TagsService(prisma as never, queue as never);
+    const service = new TagsService(prisma as never, queue as never, makeClipQueueMock() as never);
 
     await service.lockMatch(coachUser, homeClubCoachContext, "match-1");
 
@@ -179,7 +241,7 @@ describe("TagsService.lockMatch", () => {
     const queue = makeQueueMock();
     const already = lockedMatch();
     prisma.match.findUnique.mockResolvedValue(already);
-    const service = new TagsService(prisma as never, queue as never);
+    const service = new TagsService(prisma as never, queue as never, makeClipQueueMock() as never);
 
     const result = await service.lockMatch(coachUser, homeClubCoachContext, "match-1");
 

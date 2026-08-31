@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { pointValueForActionType, Role } from "@3x3/shared";
+import { pointValueForActionType, Role, VideoSourceType } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
 import { CreateTagDto, UpdateTagDto } from "@3x3/shared";
 import { StatRecomputeQueueService } from "../../common/queue/stat-recompute-queue.service";
+import { ClipGenerationQueueService } from "../../common/queue/clip-generation-queue.service";
 
 const MANAGE_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 
@@ -11,7 +12,8 @@ const MANAGE_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 export class TagsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly statRecomputeQueue: StatRecomputeQueueService
+    private readonly statRecomputeQueue: StatRecomputeQueueService,
+    private readonly clipGenerationQueue: ClipGenerationQueueService
   ) {}
 
   listForMatch(matchId: string) {
@@ -27,7 +29,7 @@ export class TagsService {
       throw new BadRequestException("teamId must be the match's home or away team.");
     }
 
-    return this.prisma.actionTag.create({
+    const tag = await this.prisma.actionTag.create({
       data: {
         matchId,
         videoAssetId: dto.videoAssetId,
@@ -42,6 +44,22 @@ export class TagsService {
         createdById: user.id,
       },
     });
+
+    // Clip generation (Phase 5): only FILE-source tags get a real ffmpeg-cut clip — EXTERNAL
+    // (YouTube) tags never get a ClipJob at all, just a deep link constructed on read by
+    // ClipsModule. This is the only place a ClipJob is ever created.
+    if (dto.videoAssetId) {
+      const video = await this.prisma.videoAsset.findUnique({
+        where: { id: dto.videoAssetId },
+        select: { sourceType: true },
+      });
+      if (video?.sourceType === VideoSourceType.FILE) {
+        await this.prisma.clipJob.create({ data: { actionTagId: tag.id } });
+        await this.clipGenerationQueue.enqueueClipGeneration(tag.id);
+      }
+    }
+
+    return tag;
   }
 
   async update(user: AuthenticatedUser, clubContext: ClubContext, tagId: string, dto: UpdateTagDto) {

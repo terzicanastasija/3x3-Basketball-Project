@@ -14,6 +14,7 @@ import { VideoModule } from "./modules/video/video.module";
 import { TagsModule } from "./modules/tags/tags.module";
 import { StatsModule } from "./modules/stats/stats.module";
 import { DashboardsModule } from "./modules/dashboards/dashboards.module";
+import { ClipsModule } from "./modules/clips/clips.module";
 import { MailModule } from "./modules/mail/mail.module";
 import { QueueModule } from "./common/queue/queue.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
@@ -42,6 +43,7 @@ import { validateEnv } from "./config/env.validation";
     TagsModule,
     StatsModule,
     DashboardsModule,
+    ClipsModule,
   ],
   providers: [
     // Order matters: JwtAuthGuard populates request.user, ClubScopeGuard uses it to resolve

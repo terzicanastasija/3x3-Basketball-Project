@@ -3,9 +3,11 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { Env } from "../../config/env.validation";
 import { createRedisConnection, REDIS_CONNECTION } from "./redis-connection";
 import { StatRecomputeQueueService } from "./stat-recompute-queue.service";
+import { ClipGenerationQueueService } from "./clip-generation-queue.service";
 
-// Global so any module can inject StatRecomputeQueueService (or the raw connection) without
-// re-importing QueueModule everywhere — only needs to be imported once, in AppModule.
+// Global so any module can inject StatRecomputeQueueService/ClipGenerationQueueService (or the
+// raw connection) without re-importing QueueModule everywhere — only needs to be imported once,
+// in AppModule.
 @Global()
 @Module({
   imports: [ConfigModule],
@@ -16,7 +18,8 @@ import { StatRecomputeQueueService } from "./stat-recompute-queue.service";
       inject: [ConfigService],
     },
     StatRecomputeQueueService,
+    ClipGenerationQueueService,
   ],
-  exports: [REDIS_CONNECTION, StatRecomputeQueueService],
+  exports: [REDIS_CONNECTION, StatRecomputeQueueService, ClipGenerationQueueService],
 })
 export class QueueModule {}
