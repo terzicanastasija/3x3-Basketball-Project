@@ -13,7 +13,43 @@ needs more detail than this file gives).
 
 ## Where we are right now
 
-**Phase 0 — Scaffolding & Auth — IN PROGRESS. Backend is code-complete and verified up to the DB.**
+**Phase 0 — Scaffolding & Auth — DONE. Full stack verified end-to-end against a real DB.**
+
+**Session update (2026-08-31)**: Docker is now working. Docker Desktop had actually completed
+its first-run setup the previous evening (Aug 30) and ran fine for hours, then crashed around
+07:01 this morning after a token-refresh call hit a transient DNS failure (`login.docker.com: no
+such host`), which took the GPU process and then the whole app down with it — nothing wrong with
+the underlying WSL2/Docker setup itself, it just wasn't running. Relaunched Docker Desktop
+manually (`Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`); it came back up
+clean (`docker ps` responds, `wsl -l -v` shows `docker-desktop` Running). From there, completed
+the rest of Phase 0:
+- `docker compose -f infra/docker-compose.yml up -d` — postgres, minio, redis, mailhog all up
+  (postgres and minio report healthy).
+- `prisma migrate dev --name init` — applied cleanly, `_prisma_migrations` created.
+- Added the hand-written CHECK constraint migration that was TODO'd in the schema comment:
+  `apps/api/prisma/migrations/20260831072500_action_tag_point_value_check/migration.sql` —
+  `ALTER TABLE "ActionTag" ADD CONSTRAINT "ActionTag_pointValue_check" CHECK ("pointValue" IS
+  NULL OR "pointValue" IN (1, 2))`. Applied via a second `prisma migrate dev` run (no schema.prisma
+  change needed — Prisma can't express CHECK constraints natively, so this stays a permanent
+  hand-maintained migration; don't expect `prisma migrate dev` to regenerate it from the schema).
+- `prisma db seed` — seeded superadmin (`admin@3x3app.local`), sample club/coach/team/players/
+  tournament, idempotently.
+- Rebuilt (`pnpm --filter api build`) and booted the real compiled API (`node dist/src/main.js`)
+  — no more `P1001`, Nest starts clean.
+- **Logged in for real**: `POST /auth/login` with the seeded superadmin credentials (from
+  `apps/api/.env`'s `SEED_SUPERADMIN_EMAIL`/`_PASSWORD`) returned a valid access+refresh token
+  pair. This is Phase 0's actual testable deliverable — confirmed working.
+- Stopped the test API process afterward (was only run manually to verify; not left running).
+
+**Note for next session**: `apps/api/.env`'s Postgres/MinIO/Redis ports must match
+`infra/docker-compose.yml` — they already do, no changes needed, just noting where to look if a
+container port ever changes. Also: `prisma` reported a major version update is available
+(5.22.0 → 8.0.0-rc.12) — not acted on, flagging in case it's worth planning a deliberate upgrade
+later rather than picking it up accidentally.
+
+### Historical context (superseded by the above, kept for the crash forensics)
+
+Backend was code-complete and verified up to the DB as of the previous session:
 
 `pnpm install` succeeded, `prisma generate` succeeded, `apps/api` builds clean (`pnpm --filter api
 build`), and the compiled API **boots successfully** — Nest wires up every module, all routes map
@@ -282,15 +318,11 @@ Player self-service login.
 
 ## Immediate next steps (in order)
 
-1. **Ask the user to launch Docker Desktop** and complete its first-run GUI setup (EULA, WSL2
-   backend init) — this is the one remaining blocker for a fully end-to-end-tested Phase 0.
-2. While that happens (or right after), scaffold `apps/web` far enough to hit `/auth/login`.
-3. Once Docker is confirmed running: `docker compose -f infra/docker-compose.yml up -d`,
-   `pnpm --filter api exec prisma migrate dev --name init`, then hand-add the manual
-   `pointValue` CHECK constraint migration (see TODO under the Prisma schema bullet above),
-   then `pnpm --filter api exec prisma db seed`.
-4. Start the API for real (`pnpm --filter api dev` or the built `start` script) and the web app,
-   and actually log in as the seeded superadmin — this is Phase 0's real "testable" deliverable.
-5. First git commit once this is genuinely runnable end-to-end (don't let uncommitted work pile up
-   indefinitely if this stretches across sessions — commit at a sensible earlier checkpoint if so).
-6. Move to Phase 1.
+Phase 0 is done — steps 1-4 below (Docker, migrate, seed, real login) are all verified complete
+as of the 2026-08-31 session update above. Remaining:
+
+1. Commit this session's work (the CHECK-constraint migration + PROGRESS.md update — everything
+   else was already committed in prior sessions per git history).
+2. Start `apps/web` against the now-live API and confirm the login flow works from the browser
+   too (only the raw HTTP call via `curl` has been verified so far, not the UI).
+3. Move to Phase 1 (Club/Team/Player/Roster CRUD).
