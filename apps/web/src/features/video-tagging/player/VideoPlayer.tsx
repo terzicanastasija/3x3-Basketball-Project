@@ -27,7 +27,14 @@ export function VideoPlayer({ sourceType, src, onAdapterReady }: VideoPlayerProp
     } else if (sourceType === "EXTERNAL" && containerRef.current) {
       const videoId = extractYouTubeVideoId(src);
       if (videoId) {
-        void createYouTubeAdapter(containerRef.current, videoId)
+        // The YouTube IFrame API REPLACES its target element in the DOM with the <iframe> it
+        // creates (it doesn't nest inside it) — handing it our own React-managed containerRef
+        // directly would let YouTube rip that node out from under React's reconciler. Give it
+        // a plain, imperatively-created child element instead, which React never touches.
+        const target = document.createElement("div");
+        containerRef.current.appendChild(target);
+
+        void createYouTubeAdapter(target, videoId)
           .then((created) => {
             if (cancelled) {
               created.destroy();
@@ -46,6 +53,7 @@ export function VideoPlayer({ sourceType, src, onAdapterReady }: VideoPlayerProp
     return () => {
       cancelled = true;
       adapter?.destroy();
+      containerRef.current?.replaceChildren();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceType, src]);
