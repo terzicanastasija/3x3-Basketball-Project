@@ -13,6 +13,25 @@ needs more detail than this file gives).
 
 ## Where we are right now
 
+**Session update (2026-08-31, later still) — replaced test-junk seed data with 4 real-looking
+clubs.** After a long testing pass (Phases 0-3), the dev DB had accumulated ad-hoc clutter from
+live UI testing (an extra "KK NMG" club, duplicate players, throwaway matches/invites). At the
+user's request, rewrote `apps/api/prisma/seed.ts` from the single "KK Primer" sample club to 4
+clubs (KK Dunav/Beograd, KK Sava/Novi Sad, KK Morava/Nis, KK Drina/Kragujevac — fictional
+river-name clubs, not real organizations), each with one `CLUB_ADMIN` login, 2 teams, 5 players,
+and a roster already built for their senior team against one shared cross-club tournament
+("Regionalni Kup 2026", `clubId: null`). The superadmin (`admin@3x3app.local`) is untouched.
+**Ran `prisma migrate reset --force`** to actually wipe every row (not just re-run the idempotent
+seed, which wouldn't have removed data created outside it) and reseed clean — this is a local-only
+Postgres container, safe to reset freely. Hit one snag: a leftover `node dist/src/main.js` process
+from earlier manual testing was still holding the Prisma query engine `.dll` open, causing `EPERM`
+on `prisma generate` right after the reset — killed that stray process, regenerated cleanly,
+rebuilt, and confirmed via `curl` that all 4 clubs list correctly and the new club-admin logins
+work. The 4 club-admin passwords are hardcoded in `seed.ts` itself (same pattern the superadmin's
+fallback password already used) — local-dev-only credentials, fine to commit, not real secrets;
+see `seed.ts` for the actual values rather than duplicating them here where they'd drift out of
+sync if ever changed.
+
 **Phase 3 — Video upload + tagging UI — DONE.** Phases 0-2 are done (see below). This session
 (2026-08-31, later still) built and verified Phase 3 end-to-end: register a video against a match
 both ways (uploaded file via presigned MinIO URL, and a YouTube link), tag actions against it with
