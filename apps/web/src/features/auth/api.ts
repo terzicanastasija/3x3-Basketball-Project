@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { AcceptInviteDto, LoginDto, Role } from "@3x3/shared";
 import { apiFetch } from "../../lib/api-client";
 import { authStorage } from "../../lib/auth-storage";
@@ -54,8 +55,10 @@ export function useAcceptInvite() {
 
 export function useLogout() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   return () => {
     authStorage.clear();
     queryClient.clear();
+    navigate("/login", { replace: true });
   };
 }

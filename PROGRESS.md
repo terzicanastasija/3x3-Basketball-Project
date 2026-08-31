@@ -17,6 +17,36 @@ needs more detail than this file gives).
 (2026-08-31, same day, later still) built and verified Phase 2 end-to-end: create a tournament,
 schedule a match between two teams, record a manual result, confirm it stuck.
 
+**Session update (2026-08-31, later still) — real browser click-through of Phases 1+2, not just
+component tests.** The Chrome extension connected this time, so every screen from both phases was
+actually clicked through end-to-end for the first time: clubs list/detail, invite-a-coach (sent a
+real invite, read it back out of Mailhog, accepted it via `/register`, logged in as the new
+coach), roster builder (add/remove a player), players scouting search (city filter), tournament
+detail, scheduling a match via the club→team cascading dropdowns, and recording a manual result
+(status flip to `PLAYED` confirmed visually). Also confirmed frontend RBAC conditionality actually
+matches the backend for a real non-superadmin session: as the coach, `/clubs` showed only their
+own club, the "New team"/invite forms were correctly hidden (`CLUB_ADMIN`-only), and "New player"
+was correctly shown (`COACH`-allowed) — this had only ever been asserted in mocked component
+tests before now.
+
+**Real bug found and fixed**: clicking "Log out" on `HomePage` cleared the stored tokens (via
+`authStorage.clear()`) but never navigated anywhere — the page kept rendering the stale
+logged-in view (name, email, club list) until the user manually navigated elsewhere, at which
+point `RequireAuth` would catch the missing token and redirect. Not a security hole (the token was
+genuinely gone, so a protected fetch or route change was always safe), but confusing/broken UX —
+a user clicking Log out would reasonably conclude nothing happened. Fixed in
+`apps/web/src/features/auth/api.ts`'s `useLogout()`: added `useNavigate()` and now calls
+`navigate("/login", { replace: true })` after clearing storage/query cache. Verified the fix live
+(logout now redirects to `/login` immediately) and added a regression test,
+`apps/web/src/features/auth/pages/HomePage.test.tsx`, asserting both the redirect and that
+`authStorage.getAccessToken()` is null afterward. All 13/13 frontend tests still pass.
+
+Also worth noting for next time: Chrome's own form autofill kept injecting the *superadmin's*
+saved login into unrelated fields (the invite-accept page's "Last name"/"Password" fields, and the
+login form when logging in as a different user) — not an app bug, just something to watch for
+when testing multiple accounts in the same browser profile; always verify field contents before
+submitting rather than trusting autofill.
+
 ### Phase 2 — backend (`apps/api`)
 
 `TournamentsModule` upgraded from Phase 1's read-only picker stub to full CRUD (list/get open to
