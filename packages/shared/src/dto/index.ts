@@ -4,3 +4,5 @@ export * from "./team.dto";
 export * from "./player.dto";
 export * from "./roster.dto";
 export * from "./invite.dto";
+export * from "./tournament.dto";
+export * from "./match.dto";
