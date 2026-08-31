@@ -13,6 +13,101 @@ needs more detail than this file gives).
 
 ## Where we are right now
 
+**Phase 4 — Stat computation + dashboards — DONE.** Phases 0-3 are done (see below). This
+session (2026-08-31, later still) built and verified Phase 4 end-to-end: locking a match
+triggers a background stat-recompute job (BullMQ/Redis), which populates match/team/player
+dashboards — every number independently hand-verified against a fixture of known tags, both via
+`curl` and in a real browser.
+
+### Phase 4 — backend (`apps/api`)
+
+First module needing a background job queue — added `bullmq` + `ioredis`. `QueueModule`
+(`src/common/queue/`, `@Global()`) provides a shared Redis connection (`REDIS_CONNECTION` token)
+and `StatRecomputeQueueService` (the producer side — just `enqueueMatchRecompute(matchId)`).
+`TagsModule`'s existing `lockMatch()` now enqueues a job on a match's **first** lock only (the
+idempotent re-lock no-op still doesn't re-enqueue — covered by an updated unit test).
+
+**`StatsModule`** (`src/modules/stats/`): the consumer is `StatRecomputeWorker`, a BullMQ
+`Worker` created in-process (`onModuleInit`) rather than a separate deployable process — a
+single worker is enough at this scale per the plan. The actual aggregation math lives in a pure,
+DB-free function, `stat-aggregation.ts`'s `aggregateMatchTags()` — the single most
+test-worth-investing-in piece of this phase, covered by hand-built fixtures asserting exact
+expected points/rebounds/assists/etc., not just "some snapshot got created." `StatsService`
+wraps it: **MATCH** scope (one `StatSnapshot` row per player/team touched by the match, computed
+directly from that match's `ActionTag` rows) → **TOURNAMENT** scope (summed from the cached
+MATCH rows within that tournament, never re-scanning raw tags) → **CAREER** scope, **players
+only, not teams** — a "team career" isn't a coherent concept the way a player's is (judgment
+call). `pointValueForActionType()` is reused for the point math rather than re-derived, so it
+can never drift from what `TagsService` already used when a tag was created. `GET
+/matches/:matchId/stat-recompute-status` lets the frontend (and this session's own verification)
+poll for job completion instead of guessing with a fixed sleep.
+
+**Real bug caught only by live verification, not by the type checker**: Prisma's compound-unique
+`where()` (the `@@unique([scopeType, playerId, teamId, matchId, tournamentId])` constraint)
+**rejects `null` at runtime** for nullable fields in the key, even though the columns and the
+underlying index are genuinely nullable — a known Prisma limitation, not just a type-generation
+gap. A cast had silenced the TypeScript error, so this shipped, built clean, and passed unit
+tests — then failed every single recompute job at runtime with `Argument teamId must not be
+null`, discovered only because a locked match's dashboard never populated during hand-verification.
+Fixed by replacing `upsert`-by-compound-key with a plain `findFirst` (which handles `null` fine)
+followed by `create`/`update`-by-id, in both `StatsService.upsertSnapshot` and
+`DashboardsService`'s two `findUnique` calls. Re-verified live afterward — see below.
+
+**`DashboardsModule`** (`src/modules/dashboards/`) reads only from `StatSnapshot`, **never**
+live-aggregates `ActionTag` — `GET /matches/:matchId/dashboard` (box score, open read), `GET
+/teams/:teamId/dashboard?tournamentId=` (tournament-scoped, 400 without `tournamentId` — teams
+have no CAREER scope), `GET /players/:playerId/dashboard` (CAREER totals + per-match history).
+
+**Stat-threshold scouting**: `PlayersModule`'s search gained `minPpg`/`maxPpg` (PPG = CAREER
+`points / gamesPlayed`, 0 for a player with no CAREER row yet i.e. never played a locked match).
+This is a derived ratio, not a stored column — deliberately filtered in the service layer after
+fetching candidates rather than fought into a single Prisma query; fine at this data scale.
+
+**Verified against the live stack with hand-calculated numbers, not just "a dashboard
+rendered"**: scheduled a fresh match (KK Dunav Seniori vs KK Sava Seniori), tagged exactly 6
+actions with known expected output (player-dunav-1: 2pt made + 2pt missed + assist → 2 pts,
+1/2 on 2pt, 1 assist; player-dunav-2: 1 offensive rebound; player-sava-1: FT made + personal
+foul → 1 pt, 1/1 FT, 1 foul), locked the match, polled `stat-recompute-status` until ready
+(~1-2s), then fetched all three dashboard endpoints and confirmed **every single number matched
+the hand calculation exactly** — match box score, both teams' tournament-scope rows, and
+player-dunav-1's career row. Also verified the PPG filter: `minPpg=2` returned only the 2.0-PPG
+player, `minPpg=0.5&maxPpg=1.5` returned only the 1.0-PPG player, and an unfiltered query
+correctly included never-tagged players (implicit 0 PPG, not excluded). 41/41 backend unit
+tests pass (12 new: stat-aggregation fixtures, updated lock/enqueue tests).
+
+### Phase 4 — frontend (`apps/web`)
+
+New `features/dashboards/` (`api.ts` + three pages): `MatchDashboardPage`
+(`/matches/:matchId/dashboard`, box score tables for teams and players), `TeamDashboardPage`
+(`/teams/:teamId/dashboard?tournamentId=`, linked from `TeamDetailPage` once a tournament's
+selected), `PlayerDashboardPage` (`/players/:playerId/dashboard`, career totals + per-match
+table, linked from `PlayerDetailPage`). `useStatRecomputeStatus` polls every second (via
+TanStack Query's `refetchInterval`, stopping once `ready`) — `MatchDetailPage` uses it so a
+locked match shows "Computing stats..." and then a real dashboard link once the job finishes,
+making "lock → stats populate" something to actually watch happen rather than only provable via
+`curl`. `PlayersListPage` gained Min/Max PPG filter inputs. New `dashboards` i18n namespace,
+sr/en. 17/17 frontend tests pass (2 new, covering both the "still computing" and "ready, link
+shown" states of the poll).
+
+**Verified in a real browser** (Chrome extension was connected) against the exact fixture from
+the backend verification above: match dashboard, team dashboard, and player dashboard all
+rendered the exact hand-checked numbers with no discrepancy; the PPG filter narrowed the
+players list to exactly the expected player. One false alarm during this pass, not a bug: a
+`/teams/:teamId` request 403'd because the browser session had a stale non-superadmin login
+left over from earlier manual testing (a club admin with no access to the other club's team) —
+re-logging in as the seeded superadmin resolved it immediately; nothing wrong with the code.
+
+### Judgment calls (Phase 4, not asked about further)
+- Teams get MATCH and TOURNAMENT stat scopes only, never CAREER — "team career" doesn't map
+  to a real concept the way a player's does.
+- Locking a match does **not** touch `match.status`/scores — Phase 2's manual-result path and
+  the tagging/stat-recompute path stay fully independent, as established in Phase 3.
+- `stat-recompute-status`'s "ready" check is simply "does at least one MATCH-scope snapshot row
+  exist for this match" — simpler than tracking BullMQ job IDs client-side, and sufficient since
+  a match can currently only be locked (and therefore recomputed) once.
+
+---
+
 **Session update (2026-08-31, later still) — replaced test-junk seed data with 4 real-looking
 clubs.** After a long testing pass (Phases 0-3), the dev DB had accumulated ad-hoc clutter from
 live UI testing (an extra "KK NMG" club, duplicate players, throwaway matches/invites). At the
