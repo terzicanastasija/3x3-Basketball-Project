@@ -47,6 +47,26 @@ export function PlayersListPage() {
           }
           style={{ width: 90 }}
         />
+        <input
+          type="number"
+          step="0.1"
+          placeholder={t("players.filters.minPpg") ?? ""}
+          value={filters.minPpg ?? ""}
+          onChange={(e) =>
+            updateFilter({ minPpg: e.target.value ? Number(e.target.value) : undefined })
+          }
+          style={{ width: 90 }}
+        />
+        <input
+          type="number"
+          step="0.1"
+          placeholder={t("players.filters.maxPpg") ?? ""}
+          value={filters.maxPpg ?? ""}
+          onChange={(e) =>
+            updateFilter({ maxPpg: e.target.value ? Number(e.target.value) : undefined })
+          }
+          style={{ width: 90 }}
+        />
       </div>
 
       {isLoading && <p>{t("home.loading")}</p>}

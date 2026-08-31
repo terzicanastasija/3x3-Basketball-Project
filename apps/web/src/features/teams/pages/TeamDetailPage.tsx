@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { useTeam } from "../api";
@@ -54,6 +54,11 @@ export function TeamDetailPage() {
 
       {tournamentId && (
         <div style={{ marginTop: 16 }}>
+          <p>
+            <Link to={`/teams/${teamId}/dashboard?tournamentId=${tournamentId}`}>
+              {t("teams.roster.viewDashboard")}
+            </Link>
+          </p>
           <h2>{t("teams.roster.title")}</h2>
           {rosterLoading && <p>{t("home.loading")}</p>}
 

@@ -7,6 +7,7 @@ import { MatchEndType, recordMatchResultSchema, RecordMatchResultDto, Role } fro
 import { useMatch, useRecordMatchResult } from "../api";
 import { useTeam } from "../../teams/api";
 import { useCurrentUser } from "../../auth/api";
+import { useStatRecomputeStatus } from "../../dashboards/api";
 import { ApiError } from "../../../lib/api-client";
 import { NavBar } from "../../../components/NavBar";
 
@@ -18,6 +19,11 @@ export function MatchDetailPage() {
   const { data: homeTeam } = useTeam(match?.homeTeamId);
   const { data: awayTeam } = useTeam(match?.awayTeamId);
   const recordResult = useRecordMatchResult(matchId ?? "");
+  // Only poll once the match is actually locked — a stat-recompute job is only ever
+  // enqueued on first lock, so polling before that would just spin forever.
+  const { data: recomputeStatus } = useStatRecomputeStatus(matchId, {
+    enabled: Boolean(match?.lockedAt),
+  });
 
   const canRecordResult =
     currentUser?.isSuperadmin ||
@@ -78,6 +84,16 @@ export function MatchDetailPage() {
           {match.lockedAt ? t("matches.detail.viewTags") : t("matches.detail.tagMatch")}
         </Link>
       </p>
+
+      {match.lockedAt && (
+        <p>
+          {recomputeStatus?.ready ? (
+            <Link to={`/matches/${match.id}/dashboard`}>{t("matches.detail.viewDashboard")}</Link>
+          ) : (
+            t("matches.detail.computingStats")
+          )}
+        </p>
+      )}
 
       {isPlayed && (
         <div style={{ marginTop: 16 }}>

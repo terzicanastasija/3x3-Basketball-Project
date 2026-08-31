@@ -21,6 +21,8 @@ function toQueryString(query: PlayerSearchQueryDto): string {
   if (query.city) params.set("city", query.city);
   if (query.minAge !== undefined) params.set("minAge", String(query.minAge));
   if (query.maxAge !== undefined) params.set("maxAge", String(query.maxAge));
+  if (query.minPpg !== undefined) params.set("minPpg", String(query.minPpg));
+  if (query.maxPpg !== undefined) params.set("maxPpg", String(query.maxPpg));
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }

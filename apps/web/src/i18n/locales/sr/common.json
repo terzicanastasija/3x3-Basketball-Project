@@ -75,7 +75,8 @@
       "empty": "Sastav je prazan.",
       "addPlayer": "Dodaj igrača",
       "add": "Dodaj",
-      "noCandidates": "Nema dostupnih igrača iz kluba."
+      "noCandidates": "Nema dostupnih igrača iz kluba.",
+      "viewDashboard": "Pregledaj statistiku ekipe"
     }
   },
   "players": {
@@ -86,7 +87,9 @@
       "clubId": "ID kluba",
       "city": "Grad",
       "minAge": "Min. godine",
-      "maxAge": "Maks. godine"
+      "maxAge": "Maks. godine",
+      "minPpg": "Min. poena/utak.",
+      "maxPpg": "Maks. poena/utak."
     },
     "detail": {
       "club": "Klub",
@@ -99,7 +102,8 @@
       "editTitle": "Izmeni igrača",
       "editSubmit": "Sačuvaj",
       "editError": "Čuvanje nije uspelo.",
-      "editSuccess": "Sačuvano."
+      "editSuccess": "Sačuvano.",
+      "viewDashboard": "Pregledaj statistiku"
     }
   },
   "tournaments": {
@@ -150,7 +154,9 @@
       "resultError": "Čuvanje rezultata nije uspelo.",
       "submitResult": "Sačuvaj rezultat",
       "tagMatch": "Označi ovu utakmicu",
-      "viewTags": "Pregledaj oznake"
+      "viewTags": "Pregledaj oznake",
+      "viewDashboard": "Pregledaj statistiku",
+      "computingStats": "Izračunavanje statistike..."
     }
   },
   "tagging": {
@@ -193,6 +199,40 @@
       "STEAL": "Ukradena lopta",
       "BLOCK": "Blokada",
       "PERSONAL_FOUL": "Lični faul"
+    }
+  },
+  "dashboards": {
+    "table": {
+      "name": "Ime",
+      "points": "Poeni",
+      "shots2pt": "Dvojke",
+      "shots1pt": "Jedinice",
+      "ft": "Slobodna bacanja",
+      "rebounds": "Skokovi",
+      "assists": "Asistencije",
+      "steals": "Ukradene lopte",
+      "blocks": "Blokade",
+      "fouls": "Faulovi"
+    },
+    "match": {
+      "title": "Statistika utakmice",
+      "empty": "Statistika za ovu utakmicu još nije izračunata.",
+      "teams": "Ekipe",
+      "players": "Igrači"
+    },
+    "team": {
+      "title": "Statistika ekipe",
+      "noTournament": "Izaberi turnir da vidiš statistiku ekipe.",
+      "empty": "Ekipa još nije odigrala zaključanu utakmicu na ovom turniru.",
+      "gamesPlayed": "Odigrane utakmice"
+    },
+    "player": {
+      "title": "Statistika igrača",
+      "career": "Karijera",
+      "noCareerStats": "Igrač još nema statistiku iz zaključane utakmice.",
+      "ppg": "Poena po utakmici",
+      "matchHistory": "Istorija utakmica",
+      "noMatches": "Nema odigranih utakmica."
     }
   }
 }

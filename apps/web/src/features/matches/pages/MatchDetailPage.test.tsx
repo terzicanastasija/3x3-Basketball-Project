@@ -101,3 +101,73 @@ describe("MatchDetailPage — record a result", () => {
     });
   });
 });
+
+describe("MatchDetailPage — stat dashboard after lock", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    authStorage.setTokens("test-access-token", "test-refresh-token");
+  });
+
+  function lockedMatch() {
+    return {
+      id: "match-1",
+      tournamentId: "tourn-1",
+      homeTeamId: "team-home",
+      awayTeamId: "team-away",
+      scheduledAt: null,
+      status: "SCHEDULED",
+      endType: null,
+      homeScore: null,
+      awayScore: null,
+      homeTeamFouls: 0,
+      awayTeamFouls: 0,
+      lockedAt: "2026-08-31T12:00:00.000Z",
+    };
+  }
+
+  function mockFetchWithRecomputeReady(ready: boolean) {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url.endsWith("/users/me")) {
+        return jsonResponse({
+          id: "user-1",
+          email: "admin@test.local",
+          firstName: "Super",
+          lastName: "Admin",
+          isSuperadmin: true,
+          locale: "en",
+          memberships: [],
+        });
+      }
+      if (url.endsWith("/matches/match-1") && method === "GET") {
+        return jsonResponse(lockedMatch());
+      }
+      if (url.endsWith("/matches/match-1/stat-recompute-status") && method === "GET") {
+        return jsonResponse({ ready });
+      }
+      if (url.endsWith("/teams/team-home") && method === "GET") {
+        return jsonResponse({ id: "team-home", clubId: "club-1", name: "Home Team", jerseyColor: null });
+      }
+      if (url.endsWith("/teams/team-away") && method === "GET") {
+        return jsonResponse({ id: "team-away", clubId: "club-2", name: "Away Team", jerseyColor: null });
+      }
+      throw new Error(`Unhandled fetch in test: ${method} ${url}`);
+    });
+  }
+
+  it("shows a 'computing' message while the recompute job hasn't finished yet", async () => {
+    mockFetchWithRecomputeReady(false);
+    renderMatchDetailPage();
+
+    await screen.findByText(/computing stats/i);
+    expect(screen.queryByText(/view stats/i)).toBeNull();
+  });
+
+  it("shows a dashboard link once the recompute job has finished", async () => {
+    mockFetchWithRecomputeReady(true);
+    renderMatchDetailPage();
+
+    await screen.findByRole("link", { name: /view stats/i });
+  });
+});

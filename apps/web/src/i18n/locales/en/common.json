@@ -75,7 +75,8 @@
       "empty": "Roster is empty.",
       "addPlayer": "Add a player",
       "add": "Add",
-      "noCandidates": "No available club players."
+      "noCandidates": "No available club players.",
+      "viewDashboard": "View team stats"
     }
   },
   "players": {
@@ -86,7 +87,9 @@
       "clubId": "Club ID",
       "city": "City",
       "minAge": "Min age",
-      "maxAge": "Max age"
+      "maxAge": "Max age",
+      "minPpg": "Min PPG",
+      "maxPpg": "Max PPG"
     },
     "detail": {
       "club": "Club",
@@ -99,7 +102,8 @@
       "editTitle": "Edit player",
       "editSubmit": "Save",
       "editError": "Save failed.",
-      "editSuccess": "Saved."
+      "editSuccess": "Saved.",
+      "viewDashboard": "View stats"
     }
   },
   "tournaments": {
@@ -150,7 +154,9 @@
       "resultError": "Failed to save result.",
       "submitResult": "Save result",
       "tagMatch": "Tag this match",
-      "viewTags": "View tags"
+      "viewTags": "View tags",
+      "viewDashboard": "View stats",
+      "computingStats": "Computing stats..."
     }
   },
   "tagging": {
@@ -193,6 +199,40 @@
       "STEAL": "Steal",
       "BLOCK": "Block",
       "PERSONAL_FOUL": "Personal foul"
+    }
+  },
+  "dashboards": {
+    "table": {
+      "name": "Name",
+      "points": "Points",
+      "shots2pt": "2pt",
+      "shots1pt": "1pt",
+      "ft": "Free throws",
+      "rebounds": "Rebounds",
+      "assists": "Assists",
+      "steals": "Steals",
+      "blocks": "Blocks",
+      "fouls": "Fouls"
+    },
+    "match": {
+      "title": "Match dashboard",
+      "empty": "Stats for this match haven't been computed yet.",
+      "teams": "Teams",
+      "players": "Players"
+    },
+    "team": {
+      "title": "Team dashboard",
+      "noTournament": "Select a tournament to see the team's stats.",
+      "empty": "This team hasn't played a locked match in this tournament yet.",
+      "gamesPlayed": "Games played"
+    },
+    "player": {
+      "title": "Player dashboard",
+      "career": "Career",
+      "noCareerStats": "This player has no stats from a locked match yet.",
+      "ppg": "Points per game",
+      "matchHistory": "Match history",
+      "noMatches": "No matches played yet."
     }
   }
 }

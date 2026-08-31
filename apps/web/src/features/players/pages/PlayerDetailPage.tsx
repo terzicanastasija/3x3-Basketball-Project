@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { Handedness, Role, updatePlayerSchema, UpdatePlayerDto } from "@3x3/shared";
@@ -57,6 +57,9 @@ export function PlayerDetailPage() {
         <li>{t("players.detail.height")}: {player.heightCm ? `${player.heightCm} cm` : "—"}</li>
         <li>{t("players.detail.hand")}: {player.dominantHand}</li>
       </ul>
+      <p>
+        <Link to={`/players/${player.id}/dashboard`}>{t("players.detail.viewDashboard")}</Link>
+      </p>
 
       {canEdit && (
         <div style={{ marginTop: 24 }}>

@@ -11,6 +11,9 @@ import { TournamentsListPage } from "../features/tournaments/pages/TournamentsLi
 import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
 import { MatchDetailPage } from "../features/matches/pages/MatchDetailPage";
 import { TaggingPage } from "../features/video-tagging/pages/TaggingPage";
+import { MatchDashboardPage } from "../features/dashboards/pages/MatchDashboardPage";
+import { TeamDashboardPage } from "../features/dashboards/pages/TeamDashboardPage";
+import { PlayerDashboardPage } from "../features/dashboards/pages/PlayerDashboardPage";
 import { RequireAuth } from "./RequireAuth";
 
 export const router = createBrowserRouter([
@@ -93,6 +96,30 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <TaggingPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/matches/:matchId/dashboard",
+    element: (
+      <RequireAuth>
+        <MatchDashboardPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/teams/:teamId/dashboard",
+    element: (
+      <RequireAuth>
+        <TeamDashboardPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/players/:playerId/dashboard",
+    element: (
+      <RequireAuth>
+        <PlayerDashboardPage />
       </RequireAuth>
     ),
   },
