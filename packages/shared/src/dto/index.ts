@@ -6,3 +6,5 @@ export * from "./roster.dto";
 export * from "./invite.dto";
 export * from "./tournament.dto";
 export * from "./match.dto";
+export * from "./video.dto";
+export * from "./tag.dto";

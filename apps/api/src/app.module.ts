@@ -10,6 +10,8 @@ import { PlayersModule } from "./modules/players/players.module";
 import { RostersModule } from "./modules/rosters/rosters.module";
 import { TournamentsModule } from "./modules/tournaments/tournaments.module";
 import { MatchesModule } from "./modules/matches/matches.module";
+import { VideoModule } from "./modules/video/video.module";
+import { TagsModule } from "./modules/tags/tags.module";
 import { MailModule } from "./modules/mail/mail.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { ClubScopeGuard } from "./common/guards/club-scope.guard";
@@ -32,6 +34,8 @@ import { validateEnv } from "./config/env.validation";
     RostersModule,
     TournamentsModule,
     MatchesModule,
+    VideoModule,
+    TagsModule,
   ],
   providers: [
     // Order matters: JwtAuthGuard populates request.user, ClubScopeGuard uses it to resolve
