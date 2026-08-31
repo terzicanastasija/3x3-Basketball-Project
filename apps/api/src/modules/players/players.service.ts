@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, StatScope } from "@prisma/client";
 import { Role } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ClubContext } from "../../common/types/authenticated-request";
@@ -34,10 +34,32 @@ export class PlayersService {
       where.dateOfBirth = dobFilter;
     }
 
-    return this.prisma.player.findMany({
+    const players = await this.prisma.player.findMany({
       where,
       include: { homeClub: { select: { id: true, name: true, city: true } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    });
+
+    if (query.minPpg === undefined && query.maxPpg === undefined) {
+      return players;
+    }
+
+    // PPG is a derived ratio (CAREER points / gamesPlayed), not a stored column, so this
+    // filters in the service layer rather than fighting Prisma's query builder for it —
+    // fine at this data scale, a deliberate simplicity-over-cleverness call.
+    const careerRows = await this.prisma.statSnapshot.findMany({
+      where: { scopeType: StatScope.CAREER, playerId: { in: players.map((p) => p.id) } },
+    });
+    const ppgByPlayerId = new Map(
+      careerRows.map((row) => [row.playerId as string, row.gamesPlayed > 0 ? row.points / row.gamesPlayed : 0])
+    );
+
+    return players.filter((player) => {
+      // No CAREER row yet (never played in a locked match) counts as 0 PPG.
+      const ppg = ppgByPlayerId.get(player.id) ?? 0;
+      if (query.minPpg !== undefined && ppg < query.minPpg) return false;
+      if (query.maxPpg !== undefined && ppg > query.maxPpg) return false;
+      return true;
     });
   }
 

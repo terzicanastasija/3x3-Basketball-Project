@@ -3,12 +3,16 @@ import { pointValueForActionType, Role } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
 import { CreateTagDto, UpdateTagDto } from "@3x3/shared";
+import { StatRecomputeQueueService } from "../../common/queue/stat-recompute-queue.service";
 
 const MANAGE_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 
 @Injectable()
 export class TagsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly statRecomputeQueue: StatRecomputeQueueService
+  ) {}
 
   listForMatch(matchId: string) {
     return this.prisma.actionTag.findMany({
@@ -64,10 +68,16 @@ export class TagsService {
     const match = await this.assertCanManageMatch(user, clubContext, matchId);
     if (match.lockedAt) {
       // Idempotent: locking an already-locked match is a no-op, not an error — a coach
-      // re-clicking "Lock match" shouldn't see a failure.
+      // re-clicking "Lock match" shouldn't see a failure. Also deliberately does NOT
+      // re-enqueue a recompute — only a first-time lock triggers one.
       return match;
     }
-    return this.prisma.match.update({ where: { id: matchId }, data: { lockedAt: new Date() } });
+    const locked = await this.prisma.match.update({
+      where: { id: matchId },
+      data: { lockedAt: new Date() },
+    });
+    await this.statRecomputeQueue.enqueueMatchRecompute(matchId);
+    return locked;
   }
 
   private async findTagOrThrow(tagId: string) {

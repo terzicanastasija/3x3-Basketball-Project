@@ -8,3 +8,4 @@ export * from "./tournament.dto";
 export * from "./match.dto";
 export * from "./video.dto";
 export * from "./tag.dto";
+export * from "./dashboard.dto";

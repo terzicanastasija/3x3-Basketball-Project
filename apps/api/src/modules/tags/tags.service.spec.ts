@@ -10,6 +10,10 @@ function makePrismaMock() {
   };
 }
 
+function makeQueueMock() {
+  return { enqueueMatchRecompute: jest.fn() };
+}
+
 const coachUser: AuthenticatedUser = { id: "user-1", email: "coach@test.local", isSuperadmin: false };
 const homeClubCoachContext: ClubContext = {
   accessibleClubIds: ["club-home"],
@@ -36,7 +40,7 @@ describe("TagsService.create", () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
 
     await service.create(coachUser, homeClubCoachContext, "match-1", {
       timestampSec: 12.5,
@@ -55,7 +59,7 @@ describe("TagsService.create", () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
 
     await service.create(coachUser, homeClubCoachContext, "match-1", {
       timestampSec: 5,
@@ -71,7 +75,7 @@ describe("TagsService.create", () => {
   it("rejects a teamId that isn't the match's home or away team", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
 
     await expect(
       service.create(coachUser, homeClubCoachContext, "match-1", {
@@ -85,7 +89,7 @@ describe("TagsService.create", () => {
   it("rejects creating a tag once the match is locked", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
 
     await expect(
       service.create(coachUser, homeClubCoachContext, "match-1", {
@@ -100,7 +104,7 @@ describe("TagsService.create", () => {
   it("rejects a caller with no role in either team's club", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
     const outsiderContext: ClubContext = { accessibleClubIds: ["club-other"], roleByClubId: {} };
 
     await expect(
@@ -118,7 +122,7 @@ describe("TagsService.update / remove", () => {
     const prisma = makePrismaMock();
     prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
 
     await expect(
       service.update(coachUser, homeClubCoachContext, "tag-1", { timestampSec: 10 })
@@ -130,7 +134,7 @@ describe("TagsService.update / remove", () => {
     const prisma = makePrismaMock();
     prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
 
     await expect(service.remove(coachUser, homeClubCoachContext, "tag-1")).rejects.toBeInstanceOf(
       BadRequestException
@@ -143,7 +147,7 @@ describe("TagsService.update / remove", () => {
     prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.actionTag.update.mockResolvedValue({ id: "tag-1" });
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, makeQueueMock() as never);
 
     await service.update(coachUser, homeClubCoachContext, "tag-1", { timestampSec: 10 });
     await service.remove(coachUser, homeClubCoachContext, "tag-1");
@@ -154,11 +158,12 @@ describe("TagsService.update / remove", () => {
 });
 
 describe("TagsService.lockMatch", () => {
-  it("sets lockedAt on an unlocked match", async () => {
+  it("sets lockedAt on an unlocked match and enqueues a stat-recompute job", async () => {
     const prisma = makePrismaMock();
+    const queue = makeQueueMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     prisma.match.update.mockResolvedValue({ id: "match-1", lockedAt: new Date() });
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, queue as never);
 
     await service.lockMatch(coachUser, homeClubCoachContext, "match-1");
 
@@ -166,17 +171,20 @@ describe("TagsService.lockMatch", () => {
       where: { id: "match-1" },
       data: { lockedAt: expect.any(Date) },
     });
+    expect(queue.enqueueMatchRecompute).toHaveBeenCalledWith("match-1");
   });
 
-  it("is idempotent — locking an already-locked match does not throw or re-update", async () => {
+  it("is idempotent — locking an already-locked match does not throw, re-update, or re-enqueue", async () => {
     const prisma = makePrismaMock();
+    const queue = makeQueueMock();
     const already = lockedMatch();
     prisma.match.findUnique.mockResolvedValue(already);
-    const service = new TagsService(prisma as never);
+    const service = new TagsService(prisma as never, queue as never);
 
     const result = await service.lockMatch(coachUser, homeClubCoachContext, "match-1");
 
     expect(result).toBe(already);
     expect(prisma.match.update).not.toHaveBeenCalled();
+    expect(queue.enqueueMatchRecompute).not.toHaveBeenCalled();
   });
 });

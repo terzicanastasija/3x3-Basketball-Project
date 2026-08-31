@@ -12,7 +12,10 @@ import { TournamentsModule } from "./modules/tournaments/tournaments.module";
 import { MatchesModule } from "./modules/matches/matches.module";
 import { VideoModule } from "./modules/video/video.module";
 import { TagsModule } from "./modules/tags/tags.module";
+import { StatsModule } from "./modules/stats/stats.module";
+import { DashboardsModule } from "./modules/dashboards/dashboards.module";
 import { MailModule } from "./modules/mail/mail.module";
+import { QueueModule } from "./common/queue/queue.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { ClubScopeGuard } from "./common/guards/club-scope.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -25,6 +28,7 @@ import { validateEnv } from "./config/env.validation";
       validate: validateEnv,
     }),
     PrismaModule,
+    QueueModule,
     AuthModule,
     UsersModule,
     MailModule,
@@ -36,6 +40,8 @@ import { validateEnv } from "./config/env.validation";
     MatchesModule,
     VideoModule,
     TagsModule,
+    StatsModule,
+    DashboardsModule,
   ],
   providers: [
     // Order matters: JwtAuthGuard populates request.user, ClubScopeGuard uses it to resolve

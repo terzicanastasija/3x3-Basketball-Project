@@ -23,5 +23,9 @@ export const playerSearchQuerySchema = z.object({
   city: z.string().min(1).optional(),
   minAge: z.coerce.number().int().nonnegative().optional(),
   maxAge: z.coerce.number().int().nonnegative().optional(),
+  // Points-per-game, derived from the player's CAREER-scope StatSnapshot (points / gamesPlayed).
+  // A player with no CAREER row yet (never played in a locked match) counts as 0 PPG.
+  minPpg: z.coerce.number().nonnegative().optional(),
+  maxPpg: z.coerce.number().nonnegative().optional(),
 });
 export type PlayerSearchQueryDto = z.infer<typeof playerSearchQuerySchema>;
