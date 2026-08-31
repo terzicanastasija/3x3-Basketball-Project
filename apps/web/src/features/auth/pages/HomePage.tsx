@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useCurrentUser, useLogout } from "../api";
-import { LanguageSwitcher } from "../../../components/LanguageSwitcher";
+import { NavBar } from "../../../components/NavBar";
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -10,10 +10,8 @@ export function HomePage() {
   if (isLoading) return <p>{t("home.loading")}</p>;
 
   return (
-    <div style={{ maxWidth: 480, margin: "4rem auto", fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <LanguageSwitcher />
-      </div>
+    <div style={{ maxWidth: 480, margin: "2rem auto", fontFamily: "sans-serif" }}>
+      <NavBar />
       <h1>{t("home.welcome", { name: user ? `${user.firstName} ${user.lastName}` : "" })}</h1>
       {user && (
         <ul>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LoginDto, Role } from "@3x3/shared";
+import { AcceptInviteDto, LoginDto, Role } from "@3x3/shared";
 import { apiFetch } from "../../lib/api-client";
 import { authStorage } from "../../lib/auth-storage";
 
@@ -38,6 +38,17 @@ export function useCurrentUser() {
     queryFn: () => apiFetch<CurrentUser>("/users/me"),
     enabled: Boolean(authStorage.getAccessToken()),
     retry: false,
+  });
+}
+
+export function useAcceptInvite() {
+  return useMutation({
+    mutationFn: (dto: AcceptInviteDto) =>
+      apiFetch<TokenPair>(
+        "/auth/invite/accept",
+        { method: "POST", body: JSON.stringify(dto) },
+        { skipAuth: true }
+      ),
   });
 }
 

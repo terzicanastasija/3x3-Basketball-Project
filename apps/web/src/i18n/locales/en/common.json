@@ -1,5 +1,10 @@
 {
   "appName": "3x3 Coach",
+  "nav": {
+    "home": "Home",
+    "clubs": "Clubs",
+    "players": "Players"
+  },
   "auth": {
     "login": {
       "title": "Log in",
@@ -10,8 +15,90 @@
     },
     "logout": "Log out"
   },
+  "register": {
+    "title": "Accept invite",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "password": "Password",
+    "submit": "Create account",
+    "error": "Invite is invalid or has expired.",
+    "success": "Account created. You can log in now.",
+    "missingToken": "Missing invite token in the link."
+  },
   "home": {
     "welcome": "Welcome, {{name}}",
     "loading": "Loading..."
+  },
+  "roles": {
+    "coach": "Coach",
+    "clubAdmin": "Club admin"
+  },
+  "clubs": {
+    "title": "Clubs",
+    "empty": "No clubs yet.",
+    "notFound": "Club not found.",
+    "create": {
+      "title": "New club",
+      "name": "Name",
+      "city": "City",
+      "submit": "Create club",
+      "error": "Failed to create club."
+    },
+    "detail": {
+      "teams": "Teams",
+      "noTeams": "No teams yet.",
+      "createTeam": "New team",
+      "teamName": "Team name",
+      "createTeamSubmit": "Create team",
+      "createPlayer": "New player",
+      "createPlayerSubmit": "Create player",
+      "createPlayerError": "First and last name are required.",
+      "invite": "Invite a coach",
+      "inviteEmail": "Email",
+      "inviteSubmit": "Send invite",
+      "inviteError": "Failed to send invite.",
+      "inviteSentHint": "Invite sent (check Mailhog at localhost:8025 in dev).",
+      "pendingInvites": "Pending invites",
+      "noPendingInvites": "No pending invites."
+    }
+  },
+  "teams": {
+    "notFound": "Team not found.",
+    "roster": {
+      "tournamentPicker": "Tournament",
+      "selectTournament": "Select a tournament",
+      "title": "Roster",
+      "none": "No roster yet for this tournament.",
+      "create": "Create roster",
+      "remove": "Remove",
+      "empty": "Roster is empty.",
+      "addPlayer": "Add a player",
+      "add": "Add",
+      "noCandidates": "No available club players."
+    }
+  },
+  "players": {
+    "title": "Players",
+    "empty": "No players found.",
+    "notFound": "Player not found.",
+    "filters": {
+      "clubId": "Club ID",
+      "city": "City",
+      "minAge": "Min age",
+      "maxAge": "Max age"
+    },
+    "detail": {
+      "club": "Club",
+      "noClub": "—",
+      "position": "Position",
+      "height": "Height",
+      "hand": "Dominant hand",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "editTitle": "Edit player",
+      "editSubmit": "Save",
+      "editError": "Save failed.",
+      "editSuccess": "Saved."
+    }
   }
 }

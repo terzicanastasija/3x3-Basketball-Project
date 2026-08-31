@@ -1,5 +1,10 @@
 {
   "appName": "3x3 Trener",
+  "nav": {
+    "home": "Početna",
+    "clubs": "Klubovi",
+    "players": "Igrači"
+  },
   "auth": {
     "login": {
       "title": "Prijava",
@@ -10,8 +15,90 @@
     },
     "logout": "Odjavi se"
   },
+  "register": {
+    "title": "Prihvati pozivnicu",
+    "firstName": "Ime",
+    "lastName": "Prezime",
+    "password": "Lozinka",
+    "submit": "Kreiraj nalog",
+    "error": "Pozivnica nije važeća ili je istekla.",
+    "success": "Nalog je kreiran. Sada se možete prijaviti.",
+    "missingToken": "Nedostaje token pozivnice u linku."
+  },
   "home": {
     "welcome": "Dobrodošli, {{name}}",
     "loading": "Učitavanje..."
+  },
+  "roles": {
+    "coach": "Trener",
+    "clubAdmin": "Administrator kluba"
+  },
+  "clubs": {
+    "title": "Klubovi",
+    "empty": "Nema klubova.",
+    "notFound": "Klub nije pronađen.",
+    "create": {
+      "title": "Novi klub",
+      "name": "Naziv",
+      "city": "Grad",
+      "submit": "Kreiraj klub",
+      "error": "Kreiranje kluba nije uspelo."
+    },
+    "detail": {
+      "teams": "Ekipe",
+      "noTeams": "Nema ekipa.",
+      "createTeam": "Nova ekipa",
+      "teamName": "Naziv ekipe",
+      "createTeamSubmit": "Kreiraj ekipu",
+      "createPlayer": "Novi igrač",
+      "createPlayerSubmit": "Kreiraj igrača",
+      "createPlayerError": "Ime i prezime su obavezni.",
+      "invite": "Pozovi trenera",
+      "inviteEmail": "Email",
+      "inviteSubmit": "Pošalji pozivnicu",
+      "inviteError": "Slanje pozivnice nije uspelo.",
+      "inviteSentHint": "Pozivnica je poslata (proveri Mailhog na localhost:8025 u razvoju).",
+      "pendingInvites": "Pozivnice na čekanju",
+      "noPendingInvites": "Nema pozivnica na čekanju."
+    }
+  },
+  "teams": {
+    "notFound": "Ekipa nije pronađena.",
+    "roster": {
+      "tournamentPicker": "Turnir",
+      "selectTournament": "Izaberi turnir",
+      "title": "Sastav",
+      "none": "Sastav za ovaj turnir još nije napravljen.",
+      "create": "Napravi sastav",
+      "remove": "Ukloni",
+      "empty": "Sastav je prazan.",
+      "addPlayer": "Dodaj igrača",
+      "add": "Dodaj",
+      "noCandidates": "Nema dostupnih igrača iz kluba."
+    }
+  },
+  "players": {
+    "title": "Igrači",
+    "empty": "Nema igrača.",
+    "notFound": "Igrač nije pronađen.",
+    "filters": {
+      "clubId": "ID kluba",
+      "city": "Grad",
+      "minAge": "Min. godine",
+      "maxAge": "Maks. godine"
+    },
+    "detail": {
+      "club": "Klub",
+      "noClub": "—",
+      "position": "Pozicija",
+      "height": "Visina",
+      "hand": "Dominantna ruka",
+      "firstName": "Ime",
+      "lastName": "Prezime",
+      "editTitle": "Izmeni igrača",
+      "editSubmit": "Sačuvaj",
+      "editError": "Čuvanje nije uspelo.",
+      "editSuccess": "Sačuvano."
+    }
   }
 }
