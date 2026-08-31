@@ -11,6 +11,148 @@ needs more detail than this file gives).
 
 ---
 
+## MVP COMPLETE — all 6 phases of the plan file are done (2026-08-31)
+
+The full "build first" loop the plan file's intro describes — **upload/link video → tag → lock →
+see stats + clips** — now works end-to-end, verified live, not just build-checked. Phase 5 (clip
+generation) was the last phase in the plan; this session finished and verified it, so the
+originally-scoped v1 build is complete.
+
+**What actually works today, verified live**: log in → create/manage clubs, teams, players,
+rosters → invite coaches by email → schedule tournaments/matches → record manual results OR
+register a video (file upload via presigned MinIO URL, or a YouTube link) → tag actions with
+keyboard shortcuts, point values always server-derived → lock a match → a background job computes
+match/tournament/career stats automatically → dashboards show them → another background job
+ffmpeg-cuts a real playable clip for every FILE-source tag (YouTube tags get an instant deep link
+instead) → clips can be assembled into an ordered, mixed-source compilation and played back.
+
+**What's deliberately still missing** (from the plan's own "build after v1" list — none of this
+was ever in scope for this build, don't treat it as a bug or an oversight):
+- Advanced stats: points-per-possession, +/-, shot-clock usage, clutch splits (the schema already
+  has nullable columns reserved for this on `StatSnapshot` — `pointsPerPossession`, `plusMinus`,
+  `avgPossessionSec` — so adding these later is a backfill, not a migration).
+- Cross-club public player profiles (today player scouting requires login; there's no public
+  unauthenticated view).
+- PDF/Excel export of stats or compilations.
+- `SCOUT` and `PLAYER` roles: both exist in the `Role` enum and are already handled correctly
+  everywhere superadmin/CLUB_ADMIN/COACH are checked (they're just never assignable from any UI
+  — no invite flow offers them, no self-service registration exists for a `PLAYER` login).
+- Any real video transcoding/normalization pipeline — uploaded FILE videos are stored and played
+  back exactly as uploaded; there's no re-encode step, thumbnailing, or format validation beyond
+  `Content-Type` at upload time.
+
+**Known rough edges worth knowing about, not fixed this session** (none block the MVP loop):
+- `apps/web` has no styling beyond inline styles — a deliberate, repeatedly-confirmed deferral
+  from Phase 0 onward, not forgotten.
+- `pnpm --filter web lint` still doesn't work (`eslint` referenced in `package.json`'s `lint`
+  script but never actually installed/configured) — flagged since Phase 0, still true.
+- No E2E (Supertest-level) API test suite exists yet (`apps/api/test/jest-e2e.json` referenced by
+  `package.json` but never created) — only unit tests exist at every phase so far.
+- ffmpeg clip cuts use `-c copy` (stream copy) for speed, which snaps to the nearest keyframe —
+  actual clip boundaries can drift a few hundred ms from the requested window (confirmed: a
+  requested 8.000s window produced an 8.334s clip in this session's live test). This is the
+  plan's own accepted tradeoff, not a bug.
+
+---
+
+## Where we are right now
+
+**Phase 5 — Clip generation — DONE. This was the last phase in the plan file (see the MVP-complete
+note above).** Built and verified end-to-end (2026-08-31, later still): a FILE-source tag gets a
+real ffmpeg-cut clip via an in-process BullMQ worker; a YouTube tag gets an instant deep link, no
+job at all. Compilations mix both source types in one ordered playlist.
+
+### Phase 5 — backend (`apps/api`)
+
+`ffmpeg-static` + `ffprobe-static` (bundled prebuilt binaries, no system ffmpeg install needed —
+**actually ran both `.exe`s directly before writing any pipeline code** to confirm they work on
+this Windows machine, not just assumed). `S3Service` gained clip-bucket methods
+(`downloadVideoToFile`, `uploadClip`, `getClipPlaybackUrl`) alongside its existing video-bucket
+ones.
+
+**`ClipGenerationQueueService`/`ClipGenerationWorker`** (`common/queue/`, `modules/clips/`): same
+producer/consumer split as Phase 4's stat-recompute queue, to avoid a TagsModule↔ClipsModule
+circular dependency. `TagsService.create()` now creates a `ClipJob` (`status: QUEUED`) and
+enqueues a job **only** when the tag's video is `FILE`-sourced — an `EXTERNAL` (YouTube) tag never
+gets a `ClipJob` row at all. The worker: downloads the source video from MinIO to a temp file →
+runs `ffmpeg -ss <start> -i <src> -t <duration> -c copy` (fast keyframe-snapped seek + stream
+copy, the plan's explicit speed/precision tradeoff) → **checks the output file is actually
+non-empty before trusting anything** (Phase 4 already taught this project that a job's reported
+status isn't proof of anything) → uploads to the `clips` bucket → marks the `ClipJob` `COMPLETED`
+with its `outputKey`. Any failure marks it `FAILED` with the error message, never crashes the
+worker process. Temp files are always cleaned up (`finally` block).
+
+`computeClipWindow(timestampSec)` (`modules/clips/clip-window.ts`) is a pure function: window end
+is fixed at `timestampSec + CLIP_SECONDS_AFTER`, start is `max(0, timestampSec -
+CLIP_SECONDS_BEFORE)` — a tag near the very start of a video gets a shorter clip, never a negative
+`-ss`. `buildYoutubeDeepLink()` (`modules/clips/youtube-deep-link.ts`) handles both
+`youtube.com/watch?v=` and `youtu.be/` URL shapes, floors the timestamp (`&t=Ns`). Both are pure,
+DB-free, and unit-tested directly against edge cases (negative-clamp, both YouTube URL shapes).
+
+**`ClipsService.resolveTagClip(tagId)`** is the single resolution path — `NONE` (tag has no
+video), `DEEP_LINK` (EXTERNAL, built on read, no storage), or `CLIP` (FILE — job status, plus a
+presigned playback URL once `COMPLETED`) — shared by both `GET /tags/:tagId/clip` and
+`CompilationsService`, so the two can never drift apart. **`CompilationsModule`**: `POST
+/compilations` (title + ordered `actionTagIds[]`, any authenticated user — tags are already
+open-read, so `createdById` is attribution only, not an access boundary), `GET /compilations/:id`
+(each item resolved to its clip/deep-link via the shared path above), `GET /compilations` (own
+compilations; superadmin sees all).
+
+**Note on a Prisma enum-nominal-typing snag** (same category as Phase 4's, much smaller): Prisma
+generates its own `JobStatus` enum distinct from `@3x3/shared`'s even though the string values
+match — assigning a Prisma-typed value into a hand-written return type using the shared enum
+failed to compile. Fixed by importing `JobStatus` from `@prisma/client` in `ClipsService`/the
+worker instead of `@3x3/shared` (equality comparisons across the two enums are fine, as
+`VideoSourceType` comparisons elsewhere already showed — only direct assignment into a typed
+position hits this).
+
+12 new backend unit tests (`clip-window.spec.ts`, `youtube-deep-link.spec.ts`, plus 3 in
+`tags.service.spec.ts` covering the FILE-creates-a-ClipJob / EXTERNAL-never-does /
+no-videoAssetId-never-does branching). 53/53 backend tests passing.
+
+**Verified against the live stack with real evidence, not just "HTTP 200" or "status:
+COMPLETED"**: generated a real 20-second synthetic MP4 with ffmpeg itself (`testsrc` pattern),
+uploaded it through the real presigned-URL flow, tagged it at 12s, polled the clip job to
+`COMPLETED` (~1s), **downloaded the actual resulting clip bytes from its presigned URL and ran
+ffprobe on them** — confirmed a real H.264 video, 320×240 (matching the source), **8.334s
+duration** (requested window was exactly 8s; the ~0.3s drift is the expected keyframe-snap
+artifact of `-c copy`, not a bug). Also registered a YouTube video, tagged it, confirmed `GET
+/tags/:tagId/clip` returns a correctly-formed deep link (`&t=30s`) and that no `ClipJob` was ever
+created for it. Built a compilation mixing both tags and confirmed `GET /compilations/:id`
+resolves each item correctly, in order.
+
+### Phase 5 — frontend (`apps/web`)
+
+`ClipBadge` (`features/clips/ClipBadge.tsx`) renders inline in the tagging screen's tag list: a
+`DEEP_LINK` tag shows an immediate link (no polling — there's no job), a `CLIP` tag polls `GET
+/tags/:tagId/clip` every second only while `QUEUED`/`PROCESSING`, then shows either a play link
+or a failed state — same "stop polling once settled" shape as Phase 4's
+`useStatRecomputeStatus`. The tagging screen's tag list gained checkboxes feeding a
+"build compilation" form (title + selected tags, in list order) that creates a `Compilation` and
+navigates straight to it. `CompilationDetailPage` renders each item in order — an inline
+`<video>` for a completed FILE clip, a link for a YouTube deep link, a status label otherwise.
+`CompilationsListPage` + a `/compilations` nav entry. sr/en i18n throughout.
+
+New test: `TaggingPage.test.tsx` gained a "compilation builder" describe block — selects a tag,
+types a title, submits, asserts the exact POST body and that it navigates to the new
+compilation's page. 18/18 frontend tests passing (also had to add the previously-missing
+`GET /tags/:tagId/clip` mock to the shared test fetch handler — the existing two adapter-parity
+tests were silently hitting an unhandled-route error on it before, harmless since they never
+asserted on it, but worth fixing so the mock accurately models the real API surface).
+
+**Verified in a real browser** (Chrome extension connected): opened the tagging screen for the
+match used in the backend verification above — saw a "Play clip" link next to the FILE tag and a
+"Deep link" link next to the YouTube tag, rendered distinctly as designed. **Clicked "Play clip"
+and watched a real video actually play** (the ffmpeg `testsrc` color-bar pattern, counting down
+from 10, 0:00→0:08) in a new tab pointed at the presigned MinIO URL — not just a link that
+resolved, an actual playing video. Selected both tags, built a compilation named "Best plays vol
+1", got navigated to its detail page, and confirmed the inline `<video>` for the FILE clip
+actually played (pause icon appeared, timer advanced) sitting next to the YouTube "Deep link" —
+genuinely mixed-source playback in one ordered list, the phase's actual testable deliverable.
+Checked `/compilations` and confirmed the list page shows all compilations created this session.
+
+---
+
 ## Where we are right now
 
 **Phase 4 — Stat computation + dashboards — DONE.** Phases 0-3 are done (see below). This
