@@ -13,6 +13,98 @@ needs more detail than this file gives).
 
 ## Where we are right now
 
+**Phase 1 — Club/Team/Player/Roster CRUD — DONE.** Phase 0 is done (see below). This session
+(2026-08-31, same day, later) built and verified Phase 1 end-to-end: superadmin invites a coach
+by email, coach accepts and logs in, coach builds a roster.
+
+### Phase 1 — backend (`apps/api`)
+
+New modules, all wired into `app.module.ts`: `ClubsModule` (CRUD + club-scoped invite endpoints),
+`TeamsModule`, `PlayersModule` (the scouting database — reads are open/cross-club on purpose),
+`RostersModule`, a read-only `TournamentsModule` placeholder stub, and `MailModule` (nodemailer →
+Mailhog, `src/modules/mail/`). New shared DTOs in `packages/shared/src/dto/{club,team,player,
+roster,invite}.dto.ts`.
+
+**RBAC decisions** (server-enforced, not just UI): Club/Team writes need `CLUB_ADMIN` in that
+club (superadmin bypasses everywhere, as before). Player writes need `CLUB_ADMIN` or `COACH` of
+the player's `homeClubId`; **player reads are deliberately open to any authenticated user** —
+cross-club scouting is the point, so `GET /players` isn't club-scoped, unlike every other list
+endpoint so far. Roster create/add/remove need `CLUB_ADMIN`/`COACH` of the team's club.
+
+**Judgment calls** (not fully specified up front, decided and documented here rather than asked):
+- `POST /teams/:teamId/rosters` is **idempotent** — if a roster already exists for that
+  `teamId`+`tournamentId` pair it returns the existing one instead of erroring, since "build a
+  roster" needs to be safe to call repeatedly from the UI (e.g. re-navigating to the same
+  tournament picker shouldn't ever 409).
+- `Player.homeClubId` is **required on create** and **not reassignable via update** in Phase 1 —
+  moving a player between clubs is out of scope for now; the schema supports it later without a
+  migration.
+- Invite tokens are **never returned by the API** — the dev flow is to read the email from
+  Mailhog's UI at `http://localhost:8025`. Verified this actually works (see below), not just
+  assumed from code.
+- Age-range player search (`minAge`/`maxAge`) translates to a `dateOfBirth` range filter; a
+  player with a `null` `dateOfBirth` is correctly excluded by any age filter (can't evaluate an
+  unknown age) — confirmed by both a curl check and a unit test.
+- `apps/api` had `jest`/`ts-jest`/`@nestjs/testing` installed since Phase 0 scaffolding but **no
+  jest config and no test files at all** — a pre-existing gap in the same category as the
+  already-noted missing eslint wiring. Added a standard NestJS jest config block to
+  `apps/api/package.json` (`rootDir: src`, `testRegex: *.spec.ts$`) so `pnpm --filter api test`
+  actually runs something. Added unit tests for the two most business-rule-sensitive bits from
+  this phase: `PlayersService.search`'s age→dateOfBirth filter translation, and
+  `RostersService.createOrGet`'s idempotency/RBAC. **8/8 passing.** E2E Jest config
+  (`test/jest-e2e.json`, referenced by `package.json`'s `test:e2e` script) still doesn't exist —
+  not created this session either, flagging for whenever Phase 2+ wants Supertest-level API tests.
+
+**Verified against the live stack (not just build-verified)** — booted the compiled API, then via
+curl: logged in as seeded superadmin → `POST /clubs/seed-club-1/invites` (`newcoach@3x3app.local`,
+COACH) → confirmed the email actually landed in Mailhog (`GET localhost:8025/api/v2/messages`,
+checked subject+body+recipient) → cross-checked the emailed token against the DB row (matched) →
+`POST /auth/invite/accept` as that token → got a real token pair → as the new coach, `POST
+/teams/seed-team-1/rosters` (idempotent create) → added two seeded players with jersey numbers →
+`GET` the roster back and confirmed both players present with correct jersey numbers. This is
+Phase 1's actual testable deliverable, confirmed working end-to-end, not assumed from code review.
+
+### Phase 1 — frontend (`apps/web`)
+
+New feature folders mirroring the existing `features/auth` layout: `features/{clubs,teams,
+players,rosters,tournaments}/api.ts` (TanStack Query hooks) `+ pages/`. New routes (all behind
+`RequireAuth` except `/register`, added to `app/router.tsx`): `/register?token=` (invite accept),
+`/clubs`, `/clubs/:clubId`, `/clubs/:clubId/teams/:teamId`, `/players`, `/players/:playerId`. A
+new `components/NavBar.tsx` replaces the bare `LanguageSwitcher` on `HomePage` so `/clubs` and
+`/players` are actually reachable from the UI (previously nothing linked to them since they
+didn't exist). UI conditionality (which forms/buttons render) mirrors the backend's real RBAC
+client-side — the backend stays the actual authority, same pattern as before.
+
+Vitest+RTL tests added: `RegisterPage.test.tsx` (missing-token state, and that the URL's
+`?token=` plus form fields get submitted correctly to `/auth/invite/accept`) and
+`TeamDetailPage.test.tsx` (the full create-roster → add-player → remove-player interaction
+against a stateful mocked `fetch`). **10/10 passing** (4 test files). One real bug caught by
+writing these: constructing a mock `Response(jsonBody, { status: 204 })` throws under
+undici/jsdom's fetch (a 204 response must have a null body per the Fetch spec) — silently broke
+the remove-player mutation in the test until fixed to `new Response(null, { status: 204 })`; the
+*real* backend already returns a true empty-body 204 via Nest's `@HttpCode(204)`, so this was a
+test-mock-only bug, not a product bug, but worth knowing if anyone else mocks a 204 fetch response
+in this repo later.
+
+`pnpm --filter @3x3/shared build`, `pnpm --filter api build`, `pnpm --filter web build` all pass
+clean. `pnpm --filter api test` (new) and the frontend Vitest suite both green.
+
+**Not verified**: an actual browser click-through of the frontend screens — the Chrome browser
+extension wasn't connected in this session's environment (`tabs_context_mcp` returned "Browser
+extension is not connected"), so the frontend was verified via component-level Vitest+RTL
+rendering of the real pages against a mocked API, not a real running browser against the real
+running dev servers. The backend side of the same flow *was* verified against the real live
+stack (see above). Worth an actual manual click-through next session if the Chrome extension is
+available, to catch anything a component test wouldn't (routing glue, real network timing, CSS/
+layout issues — though this app has no real styling yet).
+
+**Not built (explicitly out of scope for Phase 1, per the plan file)**: Tournament CRUD beyond
+the read-only picker stub, Match CRUD, anything video/tagging/stats/clips-related.
+
+---
+
+## Where we are right now (Phase 0)
+
 **Phase 0 — Scaffolding & Auth — DONE. Full stack verified end-to-end against a real DB.**
 
 **Session update (2026-08-31)**: Docker is now working. Docker Desktop had actually completed
@@ -191,13 +283,13 @@ While waiting on Docker, closed two of the three gaps `apps/web` had flagged as 
 
 ## Full phase plan (from the approved plan file)
 
-1. **Phase 0 — Scaffolding & auth** *(current)*: monorepo, Docker Compose, full Prisma schema +
+1. **Phase 0 — Scaffolding & auth** *(done)*: monorepo, Docker Compose, full Prisma schema +
    migration + seed, NestJS/React skeletons, JWT auth + invite-only registration, i18n wiring.
    *Testable: log in as seeded superadmin.*
-2. **Phase 1 — Club/Team/Player/Roster CRUD**: full CRUD + list/detail screens, club user invite
-   flow, basic scouting filters (club/city/age). *Testable: club admin invites a coach, coach
-   builds a roster.*
-3. **Phase 2 — Tournament/Match CRUD**: manual match result entry independent of video,
+2. **Phase 1 — Club/Team/Player/Roster CRUD** *(done)*: full CRUD + list/detail screens, club user
+   invite flow, basic scouting filters (club/city/age). *Testable: club admin invites a coach,
+   coach builds a roster.*
+3. **Phase 2 — Tournament/Match CRUD** *(current)*: manual match result entry independent of video,
    roster-per-tournament wired to real tournaments. *Testable: full non-video loop.*
 4. **Phase 3 — Video upload + tagging UI**: `VideoModule`, `TagsModule`, both player adapters,
    keyboard-shortcut tagging, match lock (status flip only, no jobs yet). *Testable: tag a match
@@ -318,11 +410,13 @@ Player self-service login.
 
 ## Immediate next steps (in order)
 
-Phase 0 is done — steps 1-4 below (Docker, migrate, seed, real login) are all verified complete
-as of the 2026-08-31 session update above. Remaining:
+Phase 0 and Phase 1 are both done (see "Where we are right now" at the top of this file).
+Remaining:
 
-1. Commit this session's work (the CHECK-constraint migration + PROGRESS.md update — everything
-   else was already committed in prior sessions per git history).
-2. Start `apps/web` against the now-live API and confirm the login flow works from the browser
-   too (only the raw HTTP call via `curl` has been verified so far, not the UI).
-3. Move to Phase 1 (Club/Team/Player/Roster CRUD).
+1. If the Chrome browser extension is available next session, do an actual manual click-through
+   of the Phase 1 screens (`/clubs`, `/clubs/:clubId`, `/clubs/:clubId/teams/:teamId`, `/players`,
+   `/players/:playerId`, `/register`) — this session verified the backend against the real live
+   stack and the frontend via component tests, but never a real browser against real running dev
+   servers, because the extension wasn't connected.
+2. Move to Phase 2 (Tournament/Match CRUD — manual match result entry independent of video,
+   roster-per-tournament wired to *real* Tournament CRUD instead of Phase 1's read-only stub).
