@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ACTION_TYPE_HOTKEYS,
@@ -14,6 +14,8 @@ import { usePlayers } from "../../players/api";
 import { usePlaybackUrl, useVideosForMatch } from "../../video/api";
 import { VideoRegistrationPanel } from "../../video/VideoRegistrationPanel";
 import { useCreateTag, useDeleteTag, useLockMatch, useTagsForMatch, useUpdateTag } from "../../tags/api";
+import { ClipBadge } from "../../clips/ClipBadge";
+import { useCreateCompilation } from "../../clips/api";
 import { VideoPlayer } from "../player/VideoPlayer";
 import { VideoPlayerAdapter } from "../player/VideoPlayerAdapter";
 import { NavBar } from "../../../components/NavBar";
@@ -29,6 +31,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 export function TaggingPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { matchId } = useParams<{ matchId: string }>();
   const { data: match, isLoading: matchLoading } = useMatch(matchId);
   const { data: homeTeam } = useTeam(match?.homeTeamId);
@@ -80,6 +83,22 @@ export function TaggingPage() {
   const updateTag = useUpdateTag(matchId ?? "");
   const deleteTag = useDeleteTag(matchId ?? "");
   const lockMatch = useLockMatch(matchId ?? "");
+
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [compilationTitle, setCompilationTitle] = useState("");
+  const createCompilation = useCreateCompilation();
+
+  function toggleTagSelection(tagId: string) {
+    setSelectedTagIds((prev) => (prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]));
+  }
+
+  function handleCreateCompilation() {
+    if (!compilationTitle.trim() || selectedTagIds.length === 0) return;
+    createCompilation.mutate(
+      { title: compilationTitle.trim(), actionTagIds: selectedTagIds },
+      { onSuccess: (compilation) => navigate(`/compilations/${compilation.id}`) }
+    );
+  }
 
   const isLocked = Boolean(match?.lockedAt);
 
@@ -261,8 +280,16 @@ export function TaggingPage() {
           <ul>
             {tags?.map((tag) => (
               <li key={tag.id}>
-                {tag.timestampSec.toFixed(1)}s — {t(ACTION_TYPE_I18N_KEY[tag.actionType])}
-                {tag.pointValue ? ` (+${tag.pointValue})` : ""}{" "}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={selectedTagIds.includes(tag.id)}
+                    onChange={() => toggleTagSelection(tag.id)}
+                  />{" "}
+                  {tag.timestampSec.toFixed(1)}s — {t(ACTION_TYPE_I18N_KEY[tag.actionType])}
+                  {tag.pointValue ? ` (+${tag.pointValue})` : ""}
+                </label>
+                <ClipBadge tagId={tag.id} />{" "}
                 {!isLocked && (
                   <>
                     <button onClick={() => startEditing(tag.id)}>{t("tagging.edit")}</button>{" "}
@@ -274,6 +301,22 @@ export function TaggingPage() {
             {tags?.length === 0 && <li>{t("tagging.noTags")}</li>}
           </ul>
         </div>
+
+        {selectedTagIds.length > 0 && (
+          <div style={{ marginTop: 8, padding: 8, background: "#eef" }}>
+            <label>
+              {t("clips.compilationTitle")}
+              <input
+                value={compilationTitle}
+                onChange={(e) => setCompilationTitle(e.target.value)}
+                style={{ marginLeft: 8 }}
+              />
+            </label>{" "}
+            <button onClick={handleCreateCompilation} disabled={createCompilation.isPending}>
+              {t("clips.buildCompilation", { count: selectedTagIds.length })}
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ position: "sticky", bottom: 0, background: "white", padding: 12, borderTop: "1px solid #ccc" }}>

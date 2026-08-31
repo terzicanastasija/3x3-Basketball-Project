@@ -14,6 +14,8 @@ import { TaggingPage } from "../features/video-tagging/pages/TaggingPage";
 import { MatchDashboardPage } from "../features/dashboards/pages/MatchDashboardPage";
 import { TeamDashboardPage } from "../features/dashboards/pages/TeamDashboardPage";
 import { PlayerDashboardPage } from "../features/dashboards/pages/PlayerDashboardPage";
+import { CompilationsListPage } from "../features/clips/pages/CompilationsListPage";
+import { CompilationDetailPage } from "../features/clips/pages/CompilationDetailPage";
 import { RequireAuth } from "./RequireAuth";
 
 export const router = createBrowserRouter([
@@ -120,6 +122,22 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <PlayerDashboardPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/compilations",
+    element: (
+      <RequireAuth>
+        <CompilationsListPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/compilations/:id",
+    element: (
+      <RequireAuth>
+        <CompilationDetailPage />
       </RequireAuth>
     ),
   },

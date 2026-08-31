@@ -43,6 +43,7 @@ function renderTaggingPage() {
       <MemoryRouter initialEntries={["/matches/match-1/tag"]}>
         <Routes>
           <Route path="/matches/:matchId/tag" element={<TaggingPage />} />
+          <Route path="/compilations/:id" element={<p>compilation page</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -76,6 +77,18 @@ function mockCommonFetch(video: Record<string, unknown>, createdTags: Record<str
       const created = { id: `tag-${createdTags.length + 1}`, matchId: "match-1", ...body };
       createdTags.push(created);
       return jsonResponse(created, { status: 201 });
+    }
+    if (url.match(/\/tags\/tag-\d+\/clip$/) && method === "GET") {
+      // Video source determines CLIP vs DEEP_LINK — mirrors ClipsService.resolveTagClip.
+      return jsonResponse(
+        video.sourceType === "EXTERNAL"
+          ? { type: "DEEP_LINK", url: "https://www.youtube.com/watch?v=abc123&t=17s" }
+          : { type: "CLIP", status: "COMPLETED", url: "https://example.local/clip.mp4" }
+      );
+    }
+    if (url.endsWith("/compilations") && method === "POST") {
+      const body = JSON.parse(init?.body as string);
+      return jsonResponse({ id: "compilation-1", createdById: "user-1", createdAt: "", ...body }, { status: 201 });
     }
     throw new Error(`Unhandled fetch in test: ${method} ${url}`);
   });
@@ -152,5 +165,44 @@ describe("TaggingPage — VideoPlayerAdapter parity", () => {
 
     await waitFor(() => expect(createdTags).toHaveLength(1));
     expect(createdTags[0]).toMatchObject({ actionType: "ASSIST", timestampSec: 17.25, teamId: "team-home" });
+  });
+});
+
+describe("TaggingPage — compilation builder", () => {
+  beforeEach(() => {
+    authStorage.setTokens("test-access-token", "test-refresh-token");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("selects a tag, submits a title, and navigates to the new compilation", async () => {
+    const createdTags: Record<string, unknown>[] = [
+      { id: "tag-1", matchId: "match-1", timestampSec: 5, actionType: "STEAL", teamId: "team-home", pointValue: null },
+    ];
+    let compilationRequestBody: Record<string, unknown> | undefined;
+    mockCommonFetch({ id: "video-1", sourceType: "FILE", fileKey: "matches/match-1/x.mp4" }, createdTags);
+    const originalFetch = globalThis.fetch;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/compilations") && init?.method === "POST") {
+        compilationRequestBody = JSON.parse(init.body as string);
+      }
+      return originalFetch(input, init);
+    });
+    renderTaggingPage();
+
+    const checkbox = await screen.findByRole("checkbox");
+    await userEvent.click(checkbox);
+
+    const titleInput = await screen.findByLabelText(/compilation title|naziv kompilacije/i);
+    await userEvent.type(titleInput, "Best steals");
+
+    const buildButton = await screen.findByRole("button", { name: /build compilation|napravi kompilaciju/i });
+    await userEvent.click(buildButton);
+
+    await waitFor(() => expect(screen.getByText("compilation page")).toBeTruthy());
+    expect(compilationRequestBody).toEqual({ title: "Best steals", actionTagIds: ["tag-1"] });
   });
 });

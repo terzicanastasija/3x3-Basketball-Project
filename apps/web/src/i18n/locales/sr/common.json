@@ -4,7 +4,8 @@
     "home": "Početna",
     "clubs": "Klubovi",
     "players": "Igrači",
-    "tournaments": "Turniri"
+    "tournaments": "Turniri",
+    "compilations": "Kompilacije"
   },
   "auth": {
     "login": {
@@ -233,6 +234,22 @@
       "ppg": "Poena po utakmici",
       "matchHistory": "Istorija utakmica",
       "noMatches": "Nema odigranih utakmica."
+    }
+  },
+  "clips": {
+    "deepLink": "Direktan link",
+    "playClip": "Pusti snimak",
+    "processing": "Snimak se obrađuje...",
+    "failed": "Obrada snimka nije uspela",
+    "compilationTitle": "Naziv kompilacije",
+    "buildCompilation": "Napravi kompilaciju ({{count}} tagova)",
+    "list": {
+      "title": "Kompilacije",
+      "empty": "Još nema kompilacija."
+    },
+    "detail": {
+      "notFound": "Kompilacija nije pronađena.",
+      "match": "utakmica"
     }
   }
 }

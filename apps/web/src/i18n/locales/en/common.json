@@ -4,7 +4,8 @@
     "home": "Home",
     "clubs": "Clubs",
     "players": "Players",
-    "tournaments": "Tournaments"
+    "tournaments": "Tournaments",
+    "compilations": "Compilations"
   },
   "auth": {
     "login": {
@@ -233,6 +234,22 @@
       "ppg": "Points per game",
       "matchHistory": "Match history",
       "noMatches": "No matches played yet."
+    }
+  },
+  "clips": {
+    "deepLink": "Deep link",
+    "playClip": "Play clip",
+    "processing": "Clip processing...",
+    "failed": "Clip failed",
+    "compilationTitle": "Compilation title",
+    "buildCompilation": "Build compilation ({{count}} tags)",
+    "list": {
+      "title": "Compilations",
+      "empty": "No compilations yet."
+    },
+    "detail": {
+      "notFound": "Compilation not found.",
+      "match": "match"
     }
   }
 }
