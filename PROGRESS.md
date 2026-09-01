@@ -1,3 +1,42 @@
+## Retried the real-playback hotkey verification (2026-09-01) — same environment limitation, now root-caused further
+
+Picked up where the 2026-08-31 session left off: the one open gap was a literal `[`/`]`-during-
+real-video-playback click-through, blocked last time by native `<video>` never leaving
+`readyState: 0`. Restarted the whole stack cold this session (Docker Desktop wasn't running,
+neither were the API/web dev servers — all three brought back up cleanly, no config drift) and
+retried against the same `clipwindow-test.mp4` fixture match
+(`cmthbysmt0005v76iykngcnao`) from last session.
+
+**Same symptom reproduced, and now diagnosed further**: the native `<video>` element gets a valid
+presigned MinIO URL (confirmed via `GET /videos/:id/playback-url` → 200) and stays stuck at
+`readyState: 0` / `networkState: 2` (NETWORK_LOADING) indefinitely after `play()`. Went a level
+deeper than last session's evidence:
+- **The URL itself is genuinely fetchable from the same page context** — ran `fetch()` with a
+  `Range: bytes=0-1023` header against the exact `currentSrc` the `<video>` element was using:
+  got back `206 Partial Content`, `Content-Type: video/mp4`, correct `Content-Range`, and the
+  actual 1024 bytes. Rules out CORS, auth, MinIO, or the presigned URL itself as the cause —
+  this is the same conclusion last session reached via an external `curl`, now reached from
+  *inside the exact page/tab* that fails to play it.
+- **Traced the actual `<video>` element event sequence**: `abort` → `emptied` → `waiting` →
+  `loadstart` → `stalled`, then nothing — never reaches `progress`, `loadedmetadata`, or any
+  further event, even after 4s.
+- **Codec/capability APIs both claim full support**: `canPlayType('video/mp4; codecs="avc1...`')`
+  → `"probably"`, and `navigator.mediaCapabilities.decodingInfo(...)` →
+  `{supported: true, smooth: true, powerEfficient: true}`. So the browser's own capability
+  self-report says this should work; the actual decode pipeline just never progresses.
+
+**Conclusion**: this is a real limitation of this automated/remote Chrome environment's video
+decode path (GPU process or similar), not the app. Every layer the app controls — the presigned
+URL, CORS, the HTTP range response, the codec, the DOM wiring — checks out. This is the same
+category of issue as the Phase 3-era tab freeze noted below. Not fixed this session (there's
+nothing in this codebase to fix); still worth a retry if a different/more stable browser
+environment becomes available. Until then, treat the hotkey-mark logic as verified by every
+means *not* dependent on real video decode (unit tests, button-driven marks with a stubbed time,
+DTO/API round-trip) — see the 2026-08-31 clip-marking entry below for exactly what was and wasn't
+covered that way.
+
+---
+
 # Progress / Handoff
 
 **Read this file first at the start of any session, before doing anything else.** Update it after
