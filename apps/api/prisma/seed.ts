@@ -1,4 +1,4 @@
-import { MatchStatus, PrismaClient, Role, TournamentFormat } from "@prisma/client";
+import { Handedness, MatchStatus, PrismaClient, Role, TournamentFormat } from "@prisma/client";
 import * as argon2 from "argon2";
 
 const prisma = new PrismaClient();
@@ -12,7 +12,17 @@ interface ClubSeed {
   coachEmail: string;
   coachPassword: string;
   teams: { id: string; name: string; jerseyColor: string }[];
-  players: { id: string; firstName: string; lastName: string }[];
+  players: PlayerSeed[];
+}
+
+interface PlayerSeed {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string; // ISO date
+  heightCm: number;
+  dominantHand: Handedness;
+  position: string;
 }
 
 const CLUBS: ClubSeed[] = [
@@ -29,11 +39,11 @@ const CLUBS: ClubSeed[] = [
       { id: "team-dunav-juniori", name: "Juniori", jerseyColor: "Navy" },
     ],
     players: [
-      { id: "player-dunav-1", firstName: "Aleksandar", lastName: "Jovanovic" },
-      { id: "player-dunav-2", firstName: "Milos", lastName: "Petrovic" },
-      { id: "player-dunav-3", firstName: "Nemanja", lastName: "Ilic" },
-      { id: "player-dunav-4", firstName: "Vukasin", lastName: "Pavlovic" },
-      { id: "player-dunav-5", firstName: "Ognjen", lastName: "Ristic" },
+      { id: "player-dunav-1", firstName: "Aleksandar", lastName: "Jovanovic", dateOfBirth: "2001-03-14", heightCm: 188, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-dunav-2", firstName: "Milos", lastName: "Petrovic", dateOfBirth: "1999-07-22", heightCm: 196, dominantHand: Handedness.RIGHT, position: "Forward" },
+      { id: "player-dunav-3", firstName: "Nemanja", lastName: "Ilic", dateOfBirth: "1997-11-05", heightCm: 203, dominantHand: Handedness.LEFT, position: "Center" },
+      { id: "player-dunav-4", firstName: "Vukasin", lastName: "Pavlovic", dateOfBirth: "2002-01-30", heightCm: 183, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-dunav-5", firstName: "Ognjen", lastName: "Ristic", dateOfBirth: "2000-09-18", heightCm: 192, dominantHand: Handedness.RIGHT, position: "Forward" },
     ],
   },
   {
@@ -49,11 +59,11 @@ const CLUBS: ClubSeed[] = [
       { id: "team-sava-juniori", name: "Juniori", jerseyColor: "Olive" },
     ],
     players: [
-      { id: "player-sava-1", firstName: "Filip", lastName: "Nikolic" },
-      { id: "player-sava-2", firstName: "Dusan", lastName: "Simic" },
-      { id: "player-sava-3", firstName: "Bogdan", lastName: "Kovacevic" },
-      { id: "player-sava-4", firstName: "Marko", lastName: "Radovic" },
-      { id: "player-sava-5", firstName: "Uros", lastName: "Milenkovic" },
+      { id: "player-sava-1", firstName: "Filip", lastName: "Nikolic", dateOfBirth: "2000-05-12", heightCm: 186, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-sava-2", firstName: "Dusan", lastName: "Simic", dateOfBirth: "1998-02-27", heightCm: 198, dominantHand: Handedness.LEFT, position: "Forward" },
+      { id: "player-sava-3", firstName: "Bogdan", lastName: "Kovacevic", dateOfBirth: "1996-12-03", heightCm: 205, dominantHand: Handedness.RIGHT, position: "Center" },
+      { id: "player-sava-4", firstName: "Marko", lastName: "Radovic", dateOfBirth: "2001-08-19", heightCm: 181, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-sava-5", firstName: "Uros", lastName: "Milenkovic", dateOfBirth: "1999-04-25", heightCm: 194, dominantHand: Handedness.AMBIDEXTROUS, position: "Forward" },
     ],
   },
   {
@@ -69,11 +79,11 @@ const CLUBS: ClubSeed[] = [
       { id: "team-morava-juniori", name: "Juniori", jerseyColor: "Maroon" },
     ],
     players: [
-      { id: "player-morava-1", firstName: "Stefan", lastName: "Vasic" },
-      { id: "player-morava-2", firstName: "Lazar", lastName: "Stankovic" },
-      { id: "player-morava-3", firstName: "Andrija", lastName: "Maric" },
-      { id: "player-morava-4", firstName: "Vladimir", lastName: "Zivkovic" },
-      { id: "player-morava-5", firstName: "Petar", lastName: "Dimitrijevic" },
+      { id: "player-morava-1", firstName: "Stefan", lastName: "Vasic", dateOfBirth: "2002-06-09", heightCm: 184, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-morava-2", firstName: "Lazar", lastName: "Stankovic", dateOfBirth: "2000-10-14", heightCm: 193, dominantHand: Handedness.RIGHT, position: "Forward" },
+      { id: "player-morava-3", firstName: "Andrija", lastName: "Maric", dateOfBirth: "1998-01-21", heightCm: 201, dominantHand: Handedness.LEFT, position: "Center" },
+      { id: "player-morava-4", firstName: "Vladimir", lastName: "Zivkovic", dateOfBirth: "1999-09-07", heightCm: 187, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-morava-5", firstName: "Petar", lastName: "Dimitrijevic", dateOfBirth: "2001-03-03", heightCm: 190, dominantHand: Handedness.RIGHT, position: "Forward" },
     ],
   },
   {
@@ -89,11 +99,11 @@ const CLUBS: ClubSeed[] = [
       { id: "team-drina-juniori", name: "Juniori", jerseyColor: "Gray" },
     ],
     players: [
-      { id: "player-drina-1", firstName: "Nikola", lastName: "Todorovic" },
-      { id: "player-drina-2", firstName: "Mihailo", lastName: "Jankovic" },
-      { id: "player-drina-3", firstName: "Igor", lastName: "Popovic" },
-      { id: "player-drina-4", firstName: "Bojan", lastName: "Antic" },
-      { id: "player-drina-5", firstName: "Danilo", lastName: "Obradovic" },
+      { id: "player-drina-1", firstName: "Nikola", lastName: "Todorovic", dateOfBirth: "2000-11-16", heightCm: 185, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-drina-2", firstName: "Mihailo", lastName: "Jankovic", dateOfBirth: "1998-07-08", heightCm: 197, dominantHand: Handedness.RIGHT, position: "Forward" },
+      { id: "player-drina-3", firstName: "Igor", lastName: "Popovic", dateOfBirth: "1997-05-29", heightCm: 204, dominantHand: Handedness.LEFT, position: "Center" },
+      { id: "player-drina-4", firstName: "Bojan", lastName: "Antic", dateOfBirth: "2002-02-11", heightCm: 182, dominantHand: Handedness.RIGHT, position: "Guard" },
+      { id: "player-drina-5", firstName: "Danilo", lastName: "Obradovic", dateOfBirth: "1999-12-24", heightCm: 191, dominantHand: Handedness.AMBIDEXTROUS, position: "Forward" },
     ],
   },
 ];
@@ -214,11 +224,22 @@ async function main() {
     for (const playerSeed of clubSeed.players) {
       await prisma.player.upsert({
         where: { id: playerSeed.id },
-        update: { firstName: playerSeed.firstName, lastName: playerSeed.lastName },
+        update: {
+          firstName: playerSeed.firstName,
+          lastName: playerSeed.lastName,
+          dateOfBirth: new Date(playerSeed.dateOfBirth),
+          heightCm: playerSeed.heightCm,
+          dominantHand: playerSeed.dominantHand,
+          position: playerSeed.position,
+        },
         create: {
           id: playerSeed.id,
           firstName: playerSeed.firstName,
           lastName: playerSeed.lastName,
+          dateOfBirth: new Date(playerSeed.dateOfBirth),
+          heightCm: playerSeed.heightCm,
+          dominantHand: playerSeed.dominantHand,
+          position: playerSeed.position,
           homeClubId: club.id,
         },
       });
