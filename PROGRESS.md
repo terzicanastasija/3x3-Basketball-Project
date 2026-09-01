@@ -37,6 +37,49 @@ covered that way.
 
 ---
 
+## Post-MVP: dashboards never linked back to the clips that produced them (2026-09-01, later still)
+
+User asked why they couldn't see "the videos scouts did" from a player's stats. Real gap, not a
+misunderstanding: `DashboardsService` deliberately reads only from `StatSnapshot` (aggregated
+numbers), never `ActionTag` — by design, so dashboards stay fast regardless of tag-history size —
+but that also meant neither `MatchDashboardPage` nor `PlayerDashboardPage` had *any* link back to
+the tags/clips that produced those numbers. Once there, found a second compounding gap: the tag
+list itself (`TaggingPage`, the only place clips are actually shown) never displayed which player
+a tag belonged to — `GET /matches/:matchId/tags` returned bare `playerId` strings, not names — so
+even clicking through to a match wouldn't have told you which clip was whose.
+
+**Fixed both, keeping `DashboardsService` untouched (its StatSnapshot-only design is still
+correct — this isn't an aggregation problem, it's a missing link)**:
+- `TagsService.listForMatch` now includes `player`/`relatedPlayer` (`id`/`firstName`/`lastName`)
+  in the query — one line, `GET /matches/:matchId/tags` was already the source of truth for the
+  tag list, it just wasn't asking for names. `TaggingPage`'s tag list now renders them inline
+  (e.g. "6.3s — 2pt made (+2) — Aleksandar Jovanović — Clip: 2.4s–3.9s").
+- `MatchDashboardPage` gained a top-of-page "View tags & clips" link to `/matches/:matchId/tag`.
+- `PlayerDashboardPage`'s match-history table gained a "Tags & clips" link per row, using the
+  `match.id` the endpoint already returned but the page never used for anything.
+
+Added a backend test asserting the `include` is actually requested (73→74 backend tests, still
+all passing); frontend build/tests unaffected (existing mocks just don't populate the new
+optional fields, which render as nothing — no crash). **Verified live**: on the real
+`match-dunav-vs-sava` — which the user had, in the meantime, genuinely re-tagged themselves with
+working player selection (2 tags, both correctly attributed to Aleksandar Jovanović, with real
+mark-in/out clip windows — direct confirmation the earlier Scout-read-access fix holds up in real
+use, not just this session's tests) — confirmed the tag list now shows the player's name on both
+tags, the match dashboard's "View tags & clips" link is present, and the player dashboard's "Tags
+& clips" link correctly points at `/matches/match-dunav-vs-sava/tag`. Left that match exactly as
+the user had it; a separate scratch tag created on `match-morava-vs-drina` to verify the
+dashboard-link data shape was cleaned up (tag/snapshot deleted, lock reverted) the same way prior
+test artifacts were.
+
+**Also, twice this session**: the running API dev server (`nest start --watch`) crashed with
+`MODULE_NOT_FOUND` after a manually-run `pnpm build` (a full `nest build`) raced with the watcher's
+own incremental compile and left `dist/` briefly missing `main.js` — not a code bug, a
+build-tooling collision. Both times: confirmed port 3000 was actually free (the process had fully
+died, unlike the earlier orphaned-process incident), then `pnpm dev` again. Worth remembering:
+don't run a manual `nest build` while the watch-mode dev server is also running.
+
+---
+
 ## Post-MVP: fixed a real Scout bug — "can't select a player while tagging" (2026-09-01, later still)
 
 User reported a concrete, reproducible problem: while tagging as a Scout, the Player and Related

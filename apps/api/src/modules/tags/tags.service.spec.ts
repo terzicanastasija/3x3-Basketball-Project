@@ -31,6 +31,24 @@ function lockedMatch() {
   return { ...unlockedMatch(), lockedAt: new Date("2026-01-01") };
 }
 
+describe("TagsService.listForMatch", () => {
+  it("includes player/relatedPlayer names — the tag list is the only place a viewer can tell which player a clip belongs to", () => {
+    const prisma = makePrismaMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    service.listForMatch("match-1");
+
+    expect(prisma.actionTag.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          player: { select: { id: true, firstName: true, lastName: true } },
+          relatedPlayer: { select: { id: true, firstName: true, lastName: true } },
+        },
+      })
+    );
+  });
+});
+
 describe("TagsService.create", () => {
   it("derives pointValue from actionType server-side, ignoring any client-supplied value", async () => {
     const prisma = makePrismaMock();

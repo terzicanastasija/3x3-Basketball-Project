@@ -392,6 +392,8 @@ export function TaggingPage() {
                   />{" "}
                   {tag.timestampSec.toFixed(1)}s — {t(ACTION_TYPE_I18N_KEY[tag.actionType])}
                   {tag.pointValue ? ` (+${tag.pointValue})` : ""}
+                  {tag.player ? ` — ${tag.player.firstName} ${tag.player.lastName}` : ""}
+                  {tag.relatedPlayer ? ` (${tag.relatedPlayer.firstName} ${tag.relatedPlayer.lastName})` : ""}
                   {typeof tag.clipInSec === "number" && typeof tag.clipOutSec === "number"
                     ? ` — ${t("tagging.clipWindowMarked", { in: tag.clipInSec.toFixed(1), out: tag.clipOutSec.toFixed(1) })}`
                     : ""}

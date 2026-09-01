@@ -237,7 +237,8 @@
       "title": "Statistika utakmice",
       "empty": "Statistika za ovu utakmicu još nije izračunata.",
       "teams": "Ekipe",
-      "players": "Igrači"
+      "players": "Igrači",
+      "viewTagsAndClips": "Oznake i isečci"
     },
     "team": {
       "title": "Statistika ekipe",
@@ -251,7 +252,8 @@
       "noCareerStats": "Igrač još nema statistiku iz zaključane utakmice.",
       "ppg": "Poena po utakmici",
       "matchHistory": "Istorija utakmica",
-      "noMatches": "Nema odigranih utakmica."
+      "noMatches": "Nema odigranih utakmica.",
+      "viewTagsAndClips": "Oznake i isečci"
     }
   },
   "clips": {

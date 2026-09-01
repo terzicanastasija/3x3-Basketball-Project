@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { usePlayer } from "../../players/api";
 import { usePlayerDashboard } from "../api";
@@ -55,6 +55,7 @@ export function PlayerDashboardPage() {
               <th style={{ textAlign: "left" }}>{t("dashboards.table.points")}</th>
               <th style={{ textAlign: "left" }}>{t("dashboards.table.rebounds")}</th>
               <th style={{ textAlign: "left" }}>{t("dashboards.table.assists")}</th>
+              <th style={{ textAlign: "left" }}></th>
             </tr>
           </thead>
           <tbody>
@@ -63,6 +64,9 @@ export function PlayerDashboardPage() {
                 <td>{row.points}</td>
                 <td>{row.offRebounds + row.defRebounds}</td>
                 <td>{row.assists}</td>
+                <td>
+                  <Link to={`/matches/${row.match.id}/tag`}>{t("dashboards.player.viewTagsAndClips")}</Link>
+                </td>
               </tr>
             ))}
           </tbody>

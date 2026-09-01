@@ -14,9 +14,16 @@ export class TagsService {
     private readonly clipGenerationQueue: ClipGenerationQueueService
   ) {}
 
+  // Includes player/relatedPlayer names directly — the tag list is the only place in the app
+  // that shows individual tagged actions, so without this a viewer (Coach included) has no way
+  // to tell which player a given clip actually belongs to.
   listForMatch(matchId: string) {
     return this.prisma.actionTag.findMany({
       where: { matchId },
+      include: {
+        player: { select: { id: true, firstName: true, lastName: true } },
+        relatedPlayer: { select: { id: true, firstName: true, lastName: true } },
+      },
       orderBy: { timestampSec: "asc" },
     });
   }

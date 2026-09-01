@@ -15,6 +15,8 @@ export interface ActionTag {
   isMade: boolean | null;
   clipInSec: number | null;
   clipOutSec: number | null;
+  player: { id: string; firstName: string; lastName: string } | null;
+  relatedPlayer: { id: string; firstName: string; lastName: string } | null;
 }
 
 function tagsKey(matchId: string) {

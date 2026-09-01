@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMatchDashboard } from "../api";
 import { NavBar } from "../../../components/NavBar";
@@ -18,6 +18,9 @@ export function MatchDashboardPage() {
     <div style={{ maxWidth: 720, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <NavBar />
       <h1>{t("dashboards.match.title")}</h1>
+      <p>
+        <Link to={`/matches/${matchId}/tag`}>{t("dashboards.match.viewTagsAndClips")}</Link>
+      </p>
 
       {rows?.length === 0 && <p>{t("dashboards.match.empty")}</p>}
 

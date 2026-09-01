@@ -237,7 +237,8 @@
       "title": "Match dashboard",
       "empty": "Stats for this match haven't been computed yet.",
       "teams": "Teams",
-      "players": "Players"
+      "players": "Players",
+      "viewTagsAndClips": "View tags & clips"
     },
     "team": {
       "title": "Team dashboard",
@@ -251,7 +252,8 @@
       "noCareerStats": "This player has no stats from a locked match yet.",
       "ppg": "Points per game",
       "matchHistory": "Match history",
-      "noMatches": "No matches played yet."
+      "noMatches": "No matches played yet.",
+      "viewTagsAndClips": "Tags & clips"
     }
   },
   "clips": {
