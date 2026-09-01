@@ -1,8 +1,9 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from "@nestjs/common";
 import { ZodValidationPipe } from "nestjs-zod";
 import { RostersService } from "./rosters.service";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { CurrentClubContext } from "../../common/decorators/club-context.decorator";
-import { ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
 import {
   addRosterPlayerSchema,
   AddRosterPlayerDto,
@@ -26,20 +27,20 @@ export class RostersController {
   @Post()
   createOrGet(
     @Param("teamId") teamId: string,
-    @Body(new ZodValidationPipe(createRosterSchema)) dto: CreateRosterDto,
-    @CurrentClubContext() clubContext: ClubContext
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(createRosterSchema)) dto: CreateRosterDto
   ) {
-    return this.rostersService.createOrGet(teamId, dto.tournamentId, clubContext);
+    return this.rostersService.createOrGet(user, teamId, dto.tournamentId);
   }
 
   @Post(":tournamentId/players")
   addPlayer(
     @Param("teamId") teamId: string,
     @Param("tournamentId") tournamentId: string,
-    @Body(new ZodValidationPipe(addRosterPlayerSchema)) dto: AddRosterPlayerDto,
-    @CurrentClubContext() clubContext: ClubContext
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(addRosterPlayerSchema)) dto: AddRosterPlayerDto
   ) {
-    return this.rostersService.addPlayer(teamId, tournamentId, dto, clubContext);
+    return this.rostersService.addPlayer(user, teamId, tournamentId, dto);
   }
 
   @Delete(":tournamentId/players/:playerId")
@@ -48,8 +49,8 @@ export class RostersController {
     @Param("teamId") teamId: string,
     @Param("tournamentId") tournamentId: string,
     @Param("playerId") playerId: string,
-    @CurrentClubContext() clubContext: ClubContext
+    @CurrentUser() user: AuthenticatedUser
   ) {
-    await this.rostersService.removePlayer(teamId, tournamentId, playerId, clubContext);
+    await this.rostersService.removePlayer(user, teamId, tournamentId, playerId);
   }
 }

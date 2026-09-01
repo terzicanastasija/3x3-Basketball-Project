@@ -37,6 +37,64 @@ covered that way.
 
 ---
 
+## Post-MVP: fixed a real Scout bug — "can't select a player while tagging" (2026-09-01, later still)
+
+User reported a concrete, reproducible problem: while tagging as a Scout, the Player and Related
+Player dropdowns were empty, and the tagging screen's header showed "… vs …" instead of real team
+names. Reproduced live in a real browser first, then traced the root cause via direct API calls
+before touching any code — this was a real gap in the RBAC overhaul above, not a data problem.
+
+**Root cause**: a Scout has *zero* `ClubMembership` rows by design (`isScout` is a global flag,
+same shape as `isSuperadmin` — see the enum comment). But `TeamsService`/`RostersService`/
+`ClubsService`'s **read** paths (`GET /teams/:teamId`, `GET /teams/:teamId/rosters/:tournamentId`,
+`GET /clubs`) were still scoped to `clubContext.accessibleClubIds`, which is only ever non-empty
+for someone with real club memberships. A Scout's `accessibleClubIds` was an empty array, so
+*every* club-scoped read 403'd for them — not just the writes the original RBAC pass deliberately
+restricted. That's why team names failed to load (blocked `GET /teams/:teamId`) and why the roster
+that feeds the player dropdown came back `403 Forbidden` instead of a player list.
+
+**Fix**: `ClubScopeGuard` now gives Scouts the same `accessibleClubIds: "ALL"` sentinel Superadmins
+already get, but **read-only** — a Scout needs to see any club's teams/rosters to know who's on
+the court, the same way they can already tag any match. The risk this introduces: `RostersService`
+and `PlayersService`'s *write* guards used to check `clubContext.accessibleClubIds === "ALL"` as
+their "is this an Admin" test — extending that sentinel to Scouts would have silently handed them
+roster-write and player-record-write access too, which the original spec explicitly reserves for
+Admin alone. Fixed by having both services check `user.isSuperadmin` directly for writes instead
+(added `AuthenticatedUser` to their method signatures, updated `RostersController`/
+`PlayersController` to pass it through) — decoupling "can read any club" from "can write here" so
+the two can never be conflated again. `TeamsController`'s writes were already gated on
+`user.isSuperadmin` explicitly (from the original RBAC pass), so those needed no change.
+
+Added 2 new backend tests specifically asserting a Scout is rejected from roster/player writes
+despite having read-everywhere access (the exact leak this fix prevents) — 73/73 backend tests
+pass. **Verified live**: re-visited the exact tagging screen that was broken — team names now
+resolve ("Tag match: Seniori vs Seniori" — see below) and both Player dropdowns show all 5 roster
+players; selected a player, confirmed via direct API call that the resulting tag carries the
+correct `playerId`. Also caught and fixed a second, smaller issue while there: **team names were
+literally "Seniori vs Seniori"** in that exact match header, because both clubs' senior teams
+share the generic name "Seniori" with no club prefix — renamed every seeded team to include its
+club (`Dunav Seniori`, `Sava Seniori`, etc.) via the existing idempotent seed upsert (no reset
+needed). Verified in a real browser afterward: `TeamDetailPage` now reads "Dunav Seniori", the
+5-player roster with jersey numbers renders correctly, and `PlayerDetailPage` shows the enriched
+bio data (e.g. Aleksandar Jovanović: Guard, 188cm, RIGHT-handed) from the earlier seed enrichment.
+
+**Full functional pass across every module, via `curl` as all four roles (Superadmin/Scout/
+CLUB_ADMIN/Coach) plus real-browser spot checks — not just the one bug above**: club/team/player/
+roster/tournament/match reads all correctly scoped per role; team/roster/player-record/tournament/
+match writes all correctly Admin-only (403 for Scout and CLUB_ADMIN alike); Scout-only video/tag/
+lock writes still correctly reject Coach and CLUB_ADMIN; the full tag → lock → stat-recompute →
+dashboard pipeline re-verified end-to-end with hand-checked numbers (tagged a 2pt make + assist-
+credit and an offensive rebound on two different players, locked, polled recompute, confirmed
+match/team/career dashboards matched exactly) — then **reverted that test lock and its tags**
+afterward since locking has no undo in this app and `match-morava-vs-drina` needed to stay
+untouched for the user's own tagging practice (direct SQL cleanup, local dev DB only, confirmed
+`match-dunav-vs-sava`'s pre-existing lock/tags from the user's own earlier testing were left
+completely alone). Also verified: clip resolution (`NONE`/`DEEP_LINK`/`CLIP` typing), compilation
+building (open to Coach, by design), the video-delete-blocked-while-tagged guard, and that
+CLUB_ADMIN's unaffected features (club profile update, invites) still work.
+
+---
+
 ## Post-MVP: RBAC overhaul — dedicated Scout role, Admin-only management, read-only Coach (2026-09-01)
 
 User asked for a real permission-model change, not just a new role: introduce `SCOUT` for two

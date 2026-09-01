@@ -35,8 +35,8 @@ const CLUBS: ClubSeed[] = [
     coachEmail: "dunav.coach@3x3app.local",
     coachPassword: "DunavCoach123!",
     teams: [
-      { id: "team-dunav-seniori", name: "Seniori", jerseyColor: "Blue" },
-      { id: "team-dunav-juniori", name: "Juniori", jerseyColor: "Navy" },
+      { id: "team-dunav-seniori", name: "Dunav Seniori", jerseyColor: "Blue" },
+      { id: "team-dunav-juniori", name: "Dunav Juniori", jerseyColor: "Navy" },
     ],
     players: [
       { id: "player-dunav-1", firstName: "Aleksandar", lastName: "Jovanovic", dateOfBirth: "2001-03-14", heightCm: 188, dominantHand: Handedness.RIGHT, position: "Guard" },
@@ -55,8 +55,8 @@ const CLUBS: ClubSeed[] = [
     coachEmail: "sava.coach@3x3app.local",
     coachPassword: "SavaCoach123!",
     teams: [
-      { id: "team-sava-seniori", name: "Seniori", jerseyColor: "Green" },
-      { id: "team-sava-juniori", name: "Juniori", jerseyColor: "Olive" },
+      { id: "team-sava-seniori", name: "Sava Seniori", jerseyColor: "Green" },
+      { id: "team-sava-juniori", name: "Sava Juniori", jerseyColor: "Olive" },
     ],
     players: [
       { id: "player-sava-1", firstName: "Filip", lastName: "Nikolic", dateOfBirth: "2000-05-12", heightCm: 186, dominantHand: Handedness.RIGHT, position: "Guard" },
@@ -75,8 +75,8 @@ const CLUBS: ClubSeed[] = [
     coachEmail: "morava.coach@3x3app.local",
     coachPassword: "MoravaCoach123!",
     teams: [
-      { id: "team-morava-seniori", name: "Seniori", jerseyColor: "Red" },
-      { id: "team-morava-juniori", name: "Juniori", jerseyColor: "Maroon" },
+      { id: "team-morava-seniori", name: "Morava Seniori", jerseyColor: "Red" },
+      { id: "team-morava-juniori", name: "Morava Juniori", jerseyColor: "Maroon" },
     ],
     players: [
       { id: "player-morava-1", firstName: "Stefan", lastName: "Vasic", dateOfBirth: "2002-06-09", heightCm: 184, dominantHand: Handedness.RIGHT, position: "Guard" },
@@ -95,8 +95,8 @@ const CLUBS: ClubSeed[] = [
     coachEmail: "drina.coach@3x3app.local",
     coachPassword: "DrinaCoach123!",
     teams: [
-      { id: "team-drina-seniori", name: "Seniori", jerseyColor: "Black" },
-      { id: "team-drina-juniori", name: "Juniori", jerseyColor: "Gray" },
+      { id: "team-drina-seniori", name: "Drina Seniori", jerseyColor: "Black" },
+      { id: "team-drina-juniori", name: "Drina Juniori", jerseyColor: "Gray" },
     ],
     players: [
       { id: "player-drina-1", firstName: "Nikola", lastName: "Todorovic", dateOfBirth: "2000-11-16", heightCm: 185, dominantHand: Handedness.RIGHT, position: "Guard" },

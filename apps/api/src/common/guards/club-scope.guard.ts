@@ -10,6 +10,14 @@ import { toSharedRole } from "../mappers/role.mapper";
  * has populated `request.user`. Every club-scoped service call downstream should take
  * `request.clubContext.accessibleClubIds` and filter on it — never trust a bare `:clubId`
  * path param alone. Superadmins get the 'ALL' sentinel (no filter applied).
+ *
+ * Scouts also get 'ALL' — for READS only. A Scout has zero ClubMembership rows by design
+ * (it's a global flag, not a per-club role — see Role enum's SCOUT comment), so without this
+ * they'd fail every club-scoped read (team names, rosters, the clubs list) despite legitimately
+ * needing to see any club's data to do their job. This does NOT grant Scouts any extra write
+ * power: RostersService/PlayersService's write paths check `user.isSuperadmin` explicitly
+ * rather than trusting `accessibleClubIds === "ALL"`, specifically so this read-only widening
+ * for Scouts can't be mistaken for a write bypass there.
  */
 @Injectable()
 export class ClubScopeGuard implements CanActivate {
@@ -29,7 +37,7 @@ export class ClubScopeGuard implements CanActivate {
       return true;
     }
 
-    if (request.user.isSuperadmin) {
+    if (request.user.isSuperadmin || request.user.isScout) {
       request.clubContext = { accessibleClubIds: "ALL", roleByClubId: {} };
       return true;
     }

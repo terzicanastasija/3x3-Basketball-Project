@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, StatScope } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 import { CreatePlayerDto, PlayerSearchQueryDto, UpdatePlayerDto } from "@3x3/shared";
 
 @Injectable()
@@ -71,13 +71,13 @@ export class PlayersService {
     return player;
   }
 
-  async create(dto: CreatePlayerDto, clubContext: ClubContext) {
-    this.assertIsAdmin(clubContext);
+  async create(user: AuthenticatedUser, dto: CreatePlayerDto) {
+    this.assertIsAdmin(user);
     return this.prisma.player.create({ data: dto });
   }
 
-  async update(playerId: string, dto: UpdatePlayerDto, clubContext: ClubContext) {
-    this.assertIsAdmin(clubContext);
+  async update(user: AuthenticatedUser, playerId: string, dto: UpdatePlayerDto) {
+    this.assertIsAdmin(user);
     const player = await this.prisma.player.findUnique({ where: { id: playerId } });
     if (!player) {
       throw new NotFoundException("Player not found.");
@@ -85,8 +85,8 @@ export class PlayersService {
     return this.prisma.player.update({ where: { id: playerId }, data: dto });
   }
 
-  async remove(playerId: string, clubContext: ClubContext) {
-    this.assertIsAdmin(clubContext);
+  async remove(user: AuthenticatedUser, playerId: string) {
+    this.assertIsAdmin(user);
     const player = await this.prisma.player.findUnique({ where: { id: playerId } });
     if (!player) {
       throw new NotFoundException("Player not found.");
@@ -95,10 +95,13 @@ export class PlayersService {
   }
 
   // Player master-record management (name/DOB/height/etc., separate from roster assignment)
-  // is Admin-only — see PROGRESS.md's RBAC overhaul note for why this is no longer shared
-  // with CLUB_ADMIN/COACH. Reads (search/findOne) stay fully open, unaffected.
-  private assertIsAdmin(clubContext: ClubContext) {
-    if (clubContext.accessibleClubIds !== "ALL") {
+  // is Admin-only — see PROGRESS.md's RBAC overhaul note. Deliberately checks
+  // `user.isSuperadmin` directly rather than `clubContext.accessibleClubIds === "ALL"`,
+  // because that sentinel is also true for a Scout (read-only widening, see
+  // ClubScopeGuard) — a Scout must NOT get player-record write access as a side effect.
+  // Reads (search/findOne) stay fully open, unaffected.
+  private assertIsAdmin(user: AuthenticatedUser) {
+    if (!user.isSuperadmin) {
       throw new ForbiddenException("Only an Admin can manage player records.");
     }
   }

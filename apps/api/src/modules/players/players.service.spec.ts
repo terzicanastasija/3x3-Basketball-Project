@@ -1,6 +1,6 @@
 import { ForbiddenException } from "@nestjs/common";
 import { PlayersService } from "./players.service";
-import { ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 
 function makePrismaMock() {
   return {
@@ -14,11 +14,9 @@ function makePrismaMock() {
   };
 }
 
-const superadminContext: ClubContext = { accessibleClubIds: "ALL", roleByClubId: {} };
-const clubAdminContext: ClubContext = {
-  accessibleClubIds: ["club-1"],
-  roleByClubId: { "club-1": "CLUB_ADMIN" as never },
-};
+const superadminUser: AuthenticatedUser = { id: "u1", email: "admin@test.local", isSuperadmin: true, isScout: false };
+const clubAdminUser: AuthenticatedUser = { id: "u2", email: "clubadmin@test.local", isSuperadmin: false, isScout: false };
+const scoutUser: AuthenticatedUser = { id: "u3", email: "scout@test.local", isSuperadmin: false, isScout: true };
 
 describe("PlayersService.search", () => {
   it("builds no dateOfBirth filter when no age bounds are given", async () => {
@@ -76,7 +74,7 @@ describe("PlayersService.create / update / remove", () => {
     prisma.player.create.mockResolvedValue({ id: "player-1" });
     const service = new PlayersService(prisma as never);
 
-    await service.create({ firstName: "Nikola", lastName: "Test", homeClubId: "club-1" }, superadminContext);
+    await service.create(superadminUser, { firstName: "Nikola", lastName: "Test", homeClubId: "club-1" });
 
     expect(prisma.player.create).toHaveBeenCalled();
   });
@@ -86,7 +84,7 @@ describe("PlayersService.create / update / remove", () => {
     const service = new PlayersService(prisma as never);
 
     await expect(
-      service.create({ firstName: "Nikola", lastName: "Test", homeClubId: "club-1" }, clubAdminContext)
+      service.create(clubAdminUser, { firstName: "Nikola", lastName: "Test", homeClubId: "club-1" })
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.player.create).not.toHaveBeenCalled();
   });
@@ -95,10 +93,20 @@ describe("PlayersService.create / update / remove", () => {
     const prisma = makePrismaMock();
     const service = new PlayersService(prisma as never);
 
-    await expect(service.update("player-1", { firstName: "X" }, clubAdminContext)).rejects.toBeInstanceOf(
+    await expect(service.update(clubAdminUser, "player-1", { firstName: "X" })).rejects.toBeInstanceOf(
       ForbiddenException
     );
-    await expect(service.remove("player-1", clubAdminContext)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.remove(clubAdminUser, "player-1")).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.player.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Scout — reading any club's player data does not imply player-record write access", async () => {
+    const prisma = makePrismaMock();
+    const service = new PlayersService(prisma as never);
+
+    await expect(
+      service.create(scoutUser, { firstName: "Nikola", lastName: "Test", homeClubId: "club-1" })
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.player.create).not.toHaveBeenCalled();
   });
 });

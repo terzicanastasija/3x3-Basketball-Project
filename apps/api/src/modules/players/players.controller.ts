@@ -1,8 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from "@nestjs/common";
 import { ZodValidationPipe } from "nestjs-zod";
 import { PlayersService } from "./players.service";
-import { CurrentClubContext } from "../../common/decorators/club-context.decorator";
-import { ClubContext } from "../../common/types/authenticated-request";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 import {
   createPlayerSchema,
   CreatePlayerDto,
@@ -28,24 +28,24 @@ export class PlayersController {
 
   @Post()
   create(
-    @Body(new ZodValidationPipe(createPlayerSchema)) dto: CreatePlayerDto,
-    @CurrentClubContext() clubContext: ClubContext
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(createPlayerSchema)) dto: CreatePlayerDto
   ) {
-    return this.playersService.create(dto, clubContext);
+    return this.playersService.create(user, dto);
   }
 
   @Patch(":playerId")
   update(
     @Param("playerId") playerId: string,
-    @Body(new ZodValidationPipe(updatePlayerSchema)) dto: UpdatePlayerDto,
-    @CurrentClubContext() clubContext: ClubContext
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(updatePlayerSchema)) dto: UpdatePlayerDto
   ) {
-    return this.playersService.update(playerId, dto, clubContext);
+    return this.playersService.update(user, playerId, dto);
   }
 
   @Delete(":playerId")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param("playerId") playerId: string, @CurrentClubContext() clubContext: ClubContext) {
-    await this.playersService.remove(playerId, clubContext);
+  async remove(@Param("playerId") playerId: string, @CurrentUser() user: AuthenticatedUser) {
+    await this.playersService.remove(user, playerId);
   }
 }
