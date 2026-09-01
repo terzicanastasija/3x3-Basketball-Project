@@ -10,11 +10,13 @@ import {
   useRoster,
 } from "../../rosters/api";
 import { usePlayers } from "../../players/api";
+import { useCurrentUser } from "../../auth/api";
 import { NavBar } from "../../../components/NavBar";
 
 export function TeamDetailPage() {
   const { t } = useTranslation();
   const { teamId } = useParams<{ teamId: string; clubId: string }>();
+  const { data: currentUser } = useCurrentUser();
   const { data: team, isLoading: teamLoading } = useTeam(teamId);
   const { data: tournaments } = useTournaments();
   const [searchParams] = useSearchParams();
@@ -33,6 +35,11 @@ export function TeamDetailPage() {
     [roster]
   );
   const availablePlayers = candidatePlayers?.filter((p) => !rosterPlayerIds.has(p.id)) ?? [];
+
+  // UI-level gating only — the real authority is the server, which requires an Admin
+  // (superadmin) for roster management, per the RBAC overhaul (see PROGRESS.md). Viewing the
+  // roster stays open to anyone with access to the team's club.
+  const canManageRoster = currentUser?.isSuperadmin;
 
   if (teamLoading) return <p>{t("home.loading")}</p>;
   if (!team) return <p>{t("teams.notFound")}</p>;
@@ -62,7 +69,7 @@ export function TeamDetailPage() {
           <h2>{t("teams.roster.title")}</h2>
           {rosterLoading && <p>{t("home.loading")}</p>}
 
-          {!rosterLoading && !roster && (
+          {!rosterLoading && !roster && canManageRoster && (
             <div>
               <p>{t("teams.roster.none")}</p>
               <button
@@ -73,6 +80,7 @@ export function TeamDetailPage() {
               </button>
             </div>
           )}
+          {!rosterLoading && !roster && !canManageRoster && <p>{t("teams.roster.none")}</p>}
 
           {roster && (
             <>
@@ -80,26 +88,32 @@ export function TeamDetailPage() {
                 {roster.players.map((entry) => (
                   <li key={entry.id}>
                     {`#${entry.jerseyNumber ?? "-"} ${entry.player.firstName} ${entry.player.lastName}`}{" "}
-                    <button onClick={() => removePlayer.mutate(entry.playerId)}>
-                      {t("teams.roster.remove")}
-                    </button>
+                    {canManageRoster && (
+                      <button onClick={() => removePlayer.mutate(entry.playerId)}>
+                        {t("teams.roster.remove")}
+                      </button>
+                    )}
                   </li>
                 ))}
                 {roster.players.length === 0 && <li>{t("teams.roster.empty")}</li>}
               </ul>
 
-              <h3>{t("teams.roster.addPlayer")}</h3>
-              <ul>
-                {availablePlayers.map((player) => (
-                  <li key={player.id}>
-                    {`${player.firstName} ${player.lastName}`}{" "}
-                    <button onClick={() => addPlayer.mutate({ playerId: player.id })}>
-                      {t("teams.roster.add")}
-                    </button>
-                  </li>
-                ))}
-                {availablePlayers.length === 0 && <li>{t("teams.roster.noCandidates")}</li>}
-              </ul>
+              {canManageRoster && (
+                <>
+                  <h3>{t("teams.roster.addPlayer")}</h3>
+                  <ul>
+                    {availablePlayers.map((player) => (
+                      <li key={player.id}>
+                        {`${player.firstName} ${player.lastName}`}{" "}
+                        <button onClick={() => addPlayer.mutate({ playerId: player.id })}>
+                          {t("teams.roster.add")}
+                        </button>
+                      </li>
+                    ))}
+                    {availablePlayers.length === 0 && <li>{t("teams.roster.noCandidates")}</li>}
+                  </ul>
+                </>
+              )}
             </>
           )}
         </div>

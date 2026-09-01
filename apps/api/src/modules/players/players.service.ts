@@ -1,11 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, StatScope } from "@prisma/client";
-import { Role } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ClubContext } from "../../common/types/authenticated-request";
 import { CreatePlayerDto, PlayerSearchQueryDto, UpdatePlayerDto } from "@3x3/shared";
-
-const EDIT_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 
 @Injectable()
 export class PlayersService {
@@ -75,44 +72,34 @@ export class PlayersService {
   }
 
   async create(dto: CreatePlayerDto, clubContext: ClubContext) {
-    this.assertCanEditClub(dto.homeClubId, clubContext);
+    this.assertIsAdmin(clubContext);
     return this.prisma.player.create({ data: dto });
   }
 
   async update(playerId: string, dto: UpdatePlayerDto, clubContext: ClubContext) {
+    this.assertIsAdmin(clubContext);
     const player = await this.prisma.player.findUnique({ where: { id: playerId } });
     if (!player) {
       throw new NotFoundException("Player not found.");
     }
-    this.assertCanEditPlayer(player.homeClubId, clubContext);
     return this.prisma.player.update({ where: { id: playerId }, data: dto });
   }
 
   async remove(playerId: string, clubContext: ClubContext) {
+    this.assertIsAdmin(clubContext);
     const player = await this.prisma.player.findUnique({ where: { id: playerId } });
     if (!player) {
       throw new NotFoundException("Player not found.");
     }
-    this.assertCanEditPlayer(player.homeClubId, clubContext);
     await this.prisma.player.delete({ where: { id: playerId } });
   }
 
-  private assertCanEditPlayer(homeClubId: string | null, clubContext: ClubContext) {
-    if (!homeClubId) {
-      // No home club to check a role against — only superadmin (accessibleClubIds === "ALL") may edit.
-      if (clubContext.accessibleClubIds !== "ALL") {
-        throw new ForbiddenException("Only a superadmin can edit a player with no home club.");
-      }
-      return;
-    }
-    this.assertCanEditClub(homeClubId, clubContext);
-  }
-
-  private assertCanEditClub(clubId: string, clubContext: ClubContext) {
-    if (clubContext.accessibleClubIds === "ALL") return;
-    const role = clubContext.roleByClubId[clubId];
-    if (!role || !EDIT_ROLES.includes(role)) {
-      throw new ForbiddenException("You must be a club admin or coach of this player's club.");
+  // Player master-record management (name/DOB/height/etc., separate from roster assignment)
+  // is Admin-only — see PROGRESS.md's RBAC overhaul note for why this is no longer shared
+  // with CLUB_ADMIN/COACH. Reads (search/findOne) stay fully open, unaffected.
+  private assertIsAdmin(clubContext: ClubContext) {
+    if (clubContext.accessibleClubIds !== "ALL") {
+      throw new ForbiddenException("Only an Admin can manage player records.");
     }
   }
 }

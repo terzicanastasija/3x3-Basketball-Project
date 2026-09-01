@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
-import { Role, VideoSourceType } from "@3x3/shared";
+import { VideoSourceType } from "@3x3/shared";
 import { VideoService } from "./video.service";
-import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 
 function makePrismaMock() {
   return {
@@ -18,14 +18,11 @@ function makeS3Mock() {
   };
 }
 
-const coachUser: AuthenticatedUser = { id: "user-1", email: "coach@test.local", isSuperadmin: false };
-const homeClubCoachContext: ClubContext = {
-  accessibleClubIds: ["club-home"],
-  roleByClubId: { "club-home": Role.COACH },
-};
+const scoutUser: AuthenticatedUser = { id: "user-1", email: "scout@test.local", isSuperadmin: false, isScout: true };
+const coachUser: AuthenticatedUser = { id: "user-2", email: "coach@test.local", isSuperadmin: false, isScout: false };
 
 function matchRow() {
-  return { id: "match-1", homeTeam: { clubId: "club-home" }, awayTeam: { clubId: "club-away" } };
+  return { id: "match-1" };
 }
 
 describe("VideoService.requestUploadUrl", () => {
@@ -35,11 +32,11 @@ describe("VideoService.requestUploadUrl", () => {
     const s3 = makeS3Mock();
     const service = new VideoService(prisma as never, s3 as never);
 
-    const resultA = await service.requestUploadUrl(coachUser, homeClubCoachContext, "match-1", {
+    const resultA = await service.requestUploadUrl(scoutUser, "match-1", {
       fileName: "clip.mp4",
       contentType: "video/mp4",
     });
-    const resultB = await service.requestUploadUrl(coachUser, homeClubCoachContext, "match-2", {
+    const resultB = await service.requestUploadUrl(scoutUser, "match-2", {
       fileName: "clip.mp4",
       contentType: "video/mp4",
     });
@@ -54,11 +51,11 @@ describe("VideoService.requestUploadUrl", () => {
     const s3 = makeS3Mock();
     const service = new VideoService(prisma as never, s3 as never);
 
-    const first = await service.requestUploadUrl(coachUser, homeClubCoachContext, "match-1", {
+    const first = await service.requestUploadUrl(scoutUser, "match-1", {
       fileName: "clip.mp4",
       contentType: "video/mp4",
     });
-    const second = await service.requestUploadUrl(coachUser, homeClubCoachContext, "match-1", {
+    const second = await service.requestUploadUrl(scoutUser, "match-1", {
       fileName: "clip.mp4",
       contentType: "video/mp4",
     });
@@ -66,15 +63,14 @@ describe("VideoService.requestUploadUrl", () => {
     expect(first.fileKey).not.toEqual(second.fileKey);
   });
 
-  it("rejects a caller with no role in either team's club", async () => {
+  it("rejects a Coach — video management is Scout-or-Admin only, not club-scoped", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(matchRow());
     const s3 = makeS3Mock();
     const service = new VideoService(prisma as never, s3 as never);
-    const outsiderContext: ClubContext = { accessibleClubIds: ["club-other"], roleByClubId: {} };
 
     await expect(
-      service.requestUploadUrl(coachUser, outsiderContext, "match-1", {
+      service.requestUploadUrl(coachUser, "match-1", {
         fileName: "clip.mp4",
         contentType: "video/mp4",
       })
@@ -96,9 +92,7 @@ describe("VideoService.remove", () => {
     const s3 = makeS3Mock();
     const service = new VideoService(prisma as never, s3 as never);
 
-    await expect(service.remove(coachUser, homeClubCoachContext, "video-1")).rejects.toBeInstanceOf(
-      BadRequestException
-    );
+    await expect(service.remove(scoutUser, "video-1")).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.videoAsset.delete).not.toHaveBeenCalled();
     expect(s3.deleteObject).not.toHaveBeenCalled();
   });
@@ -116,7 +110,7 @@ describe("VideoService.remove", () => {
     const s3 = makeS3Mock();
     const service = new VideoService(prisma as never, s3 as never);
 
-    await service.remove(coachUser, homeClubCoachContext, "video-1");
+    await service.remove(scoutUser, "video-1");
 
     expect(s3.deleteObject).toHaveBeenCalledWith("matches/match-1/abc-clip.mp4");
     expect(prisma.videoAsset.delete).toHaveBeenCalledWith({ where: { id: "video-1" } });

@@ -7,6 +7,7 @@ import {
   ACTION_TYPES_WITH_RELATED_PLAYER,
   ActionType,
 } from "@3x3/shared";
+import { useCurrentUser } from "../../auth/api";
 import { useMatch } from "../../matches/api";
 import { useTeam } from "../../teams/api";
 import { useRoster } from "../../rosters/api";
@@ -33,6 +34,12 @@ export function TaggingPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { matchId } = useParams<{ matchId: string }>();
+  const { data: currentUser } = useCurrentUser();
+  // UI-level gating only — the real authority is the server, which requires a Scout or Admin
+  // for video/tagging/locking, per the RBAC overhaul (see PROGRESS.md). Everything else on
+  // this page (video playback, the tag list, clip links) stays visible to any authenticated
+  // user, including a read-only Coach.
+  const canTag = Boolean(currentUser?.isSuperadmin || currentUser?.isScout);
   const { data: match, isLoading: matchLoading } = useMatch(matchId);
   const { data: homeTeam } = useTeam(match?.homeTeamId);
   const { data: awayTeam } = useTeam(match?.awayTeamId);
@@ -64,13 +71,13 @@ export function TaggingPage() {
   const [useMarkedWindow, setUseMarkedWindow] = useState(false);
 
   function markIn() {
-    if (isLocked) return;
+    if (!canTag || isLocked) return;
     setMarkedInSec(adapterRef.current?.getCurrentTime() ?? 0);
     setMarkedOutSec(null);
   }
 
   function markOut() {
-    if (isLocked || markedInSec === null) return;
+    if (!canTag || isLocked || markedInSec === null) return;
     const t = adapterRef.current?.getCurrentTime() ?? 0;
     if (t <= markedInSec) return;
     setMarkedOutSec(t);
@@ -128,7 +135,7 @@ export function TaggingPage() {
   const isLocked = Boolean(match?.lockedAt);
 
   function handleActionType(actionType: ActionType) {
-    if (isLocked || !selectedTeamId) return;
+    if (!canTag || isLocked || !selectedTeamId) return;
     const timestampSec = adapterRef.current?.getCurrentTime() ?? 0;
     const isMade = actionType.endsWith("_MADE") ? true : actionType.endsWith("_MISSED") ? false : undefined;
     const relatedAllowed = ACTION_TYPES_WITH_RELATED_PLAYER.includes(actionType);
@@ -171,7 +178,7 @@ export function TaggingPage() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (isTypingTarget(e.target) || isLocked) return;
+      if (!canTag || isTypingTarget(e.target) || isLocked) return;
       if (e.key === "[") {
         e.preventDefault();
         markIn();
@@ -192,6 +199,7 @@ export function TaggingPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    canTag,
     isLocked,
     editingTagId,
     selectedTeamId,
@@ -228,9 +236,10 @@ export function TaggingPage() {
 
       {isLocked && <p style={{ color: "green", fontWeight: "bold" }}>{t("tagging.locked")}</p>}
 
-      {!selectedVideoId && matchId && (
+      {!selectedVideoId && matchId && canTag && (
         <VideoRegistrationPanel matchId={matchId} selectedVideoId={selectedVideoId} onSelect={setSelectedVideoId} />
       )}
+      {!selectedVideoId && !canTag && <p>{t("tagging.video.noneYet")}</p>}
 
       {selectedVideoId && playback && (
         <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
@@ -243,11 +252,14 @@ export function TaggingPage() {
                 setAdapterReady(true);
               }}
             />
-            <button onClick={() => setSelectedVideoId(null)} style={{ marginTop: 8 }}>
-              {t("tagging.video.changeVideo")}
-            </button>
+            {canTag && (
+              <button onClick={() => setSelectedVideoId(null)} style={{ marginTop: 8 }}>
+                {t("tagging.video.changeVideo")}
+              </button>
+            )}
           </div>
 
+          {canTag && (
           <div style={{ flex: 1 }}>
             <div style={{ marginBottom: 12 }}>
               <label>
@@ -362,6 +374,7 @@ export function TaggingPage() {
               ))}
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -384,7 +397,7 @@ export function TaggingPage() {
                     : ""}
                 </label>
                 <ClipBadge tagId={tag.id} />{" "}
-                {!isLocked && (
+                {canTag && !isLocked && (
                   <>
                     <button onClick={() => startEditing(tag.id)}>{t("tagging.edit")}</button>{" "}
                     <button onClick={() => deleteTag.mutate(tag.id)}>{t("tagging.delete")}</button>
@@ -413,11 +426,13 @@ export function TaggingPage() {
         )}
       </div>
 
-      <div style={{ position: "sticky", bottom: 0, background: "white", padding: 12, borderTop: "1px solid #ccc" }}>
-        <button onClick={() => lockMatch.mutate()} disabled={isLocked || lockMatch.isPending}>
-          {isLocked ? t("tagging.locked") : t("tagging.lockMatch")}
-        </button>
-      </div>
+      {canTag && (
+        <div style={{ position: "sticky", bottom: 0, background: "white", padding: 12, borderTop: "1px solid #ccc" }}>
+          <button onClick={() => lockMatch.mutate()} disabled={isLocked || lockMatch.isPending}>
+            {isLocked ? t("tagging.locked") : t("tagging.lockMatch")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

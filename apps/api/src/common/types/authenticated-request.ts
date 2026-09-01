@@ -5,6 +5,9 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   isSuperadmin: boolean;
+  // Global, club-independent flag — see the Role enum's SCOUT comment for why this isn't a
+  // ClubMembership role. A Scout can manage video/tags on any match regardless of clubContext.
+  isScout: boolean;
 }
 
 /**

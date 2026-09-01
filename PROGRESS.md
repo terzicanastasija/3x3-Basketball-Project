@@ -37,6 +37,144 @@ covered that way.
 
 ---
 
+## Post-MVP: RBAC overhaul — dedicated Scout role, Admin-only management, read-only Coach (2026-09-01)
+
+User asked for a real permission-model change, not just a new role: introduce `SCOUT` for two
+specific named users (Nikola, Vukašin) who are the *only* ones who can upload match video / add
+a YouTube link / tag matches (mark actions, create clips); make Admin the *only* role that can
+create/edit tournaments and matches, manage teams and team rosters, and decide which players
+played for which team in a tournament; and make Coach read-only (can view all stats/tags/clips
+the Scouts produce, but can't upload, tag, manage tournaments/matches, or touch rosters).
+Enforced server-side, not just hidden in the UI.
+
+**This directly conflicted with the existing architecture, so before writing any code the
+existing implementation was inspected first and four architecture-defining questions were put
+to the user (not guessed):**
+1. **"Admin" = Superadmin only** (not CLUB_ADMIN too). The existing `CLUB_ADMIN` role already had
+   exactly this power, but scoped to its own club (4 seeded club-admin users). Chose to make it
+   Superadmin-exclusive — CLUB_ADMIN loses tournament/match/team/roster/player-record management
+   entirely, keeping only club-profile editing and inviting members (unaffected, not asked about).
+2. **Scout is a global flag, not a club-scoped role.** The existing `Role` enum's own comment said
+   `SCOUT` was designed to be club-scoped like `CLUB_ADMIN`/`COACH` (a `ClubMembership` row per
+   club) — but two named scouts need to tag *any* match across *any* club, which the per-club
+   model can't express without a membership row per club, maintained forever as clubs are added.
+   Chose a new `User.isScout` boolean, the same global-bypass shape `isSuperadmin` already uses.
+3. **Admin retains an override** — Superadmin can still upload video/tag/lock as a fallback (e.g.
+   to fix a scout's mistake), same spirit as Superadmin's existing override to delete a played
+   match. Scouts remain the only ones who do it as normal workflow.
+4. **Player master-record management (name/DOB/height — separate from roster assignment) is also
+   Admin-only now**, not just CLUB_ADMIN/COACH-of-home-club as before — for full consistency with
+   "Admin is the only role that manages roster-adjacent data."
+Data cleanup: **full `prisma migrate reset --force`** on the local dev Postgres container (same
+approach already used once before in this project), then reseed clean rather than surgically
+deleting duplicate test matches.
+
+### Backend (`apps/api`)
+
+**Schema**: `User` gained `isScout Boolean @default(false)` (migration `20260901092814_add_scout_flag`)
+— deliberately the same shape as `isSuperadmin`: a flag with no `ClubMembership` row, not a
+`Role.SCOUT` membership. `Role.SCOUT` itself stays in the shared enum (harmless, matches the
+existing `PLAYER`-is-reserved pattern) but is no longer how Scout permission is actually granted;
+updated its doc comment to explain why.
+
+**Auth plumbing**: `isScout` flows through the same path `isSuperadmin` already used —
+`JwtAccessPayload`/`AuthenticatedUser` gained the field, `AuthService.issueTokenPair` now signs it
+into the access token (login/refresh/accept-invite all pass it through), and `GET /users/me`
+returns it so the frontend can read `currentUser.isScout`.
+
+**Every write path that used to check `MANAGE_ROLES = [CLUB_ADMIN, COACH]` against the caller's
+club membership was rewritten**, each now checking a plain boolean condition instead of doing a
+club/role lookup at all (video/tags no longer even need `ClubContext` — dropped it from every
+public method signature and the corresponding controller params):
+- `VideoService`/`TagsService` (upload/register/remove video; create/update/delete/lock tags):
+  `user.isSuperadmin || user.isScout` — global, no club lookup.
+- `MatchesService` (create/update/recordResult/remove) and `TournamentsService`
+  (create/update/remove): `user.isSuperadmin` only. Tournament's old "any CLUB_ADMIN of some
+  club can create a clubless tournament" branch and its `assertClubAdmin` helper are gone —
+  simplified to one check.
+- `TeamsController` (create/update/delete): was `@Roles(Role.CLUB_ADMIN)` via the club-scoped
+  `RolesGuard`; switched to an explicit `if (!user.isSuperadmin) throw ForbiddenException`, same
+  pattern `ClubsController.create()` already used — clearer than relying on `@Roles(Role.SUPERADMIN)`
+  ever passing only because `ClubScopeGuard` never assigns that role to a real membership.
+- `RostersService`/`PlayersService` (roster add/remove/create; player create/update/remove):
+  simplified `assertTeamEditable`/`assertCanEditClub` to "superadmin bypasses, everyone else is
+  rejected outright" — dropped the `EDIT_ROLES` club-role lookup entirely. Reads (`find`/`search`/
+  `findOne`) are untouched and stay fully open.
+- `MatchesService.remove()`: kept the existing behavior that Superadmin can delete even a PLAYED
+  match (an intentional override, not a bug) — since only an Admin can ever reach `remove()` now,
+  the old `!user.isSuperadmin` condition on that guard would've been permanently-dead code, so it
+  was removed outright with a comment explaining why, rather than left as confusing dead code.
+
+70/70 backend unit tests pass (rewrote fixtures across `video`/`tags`/`matches`/`tournaments`/
+`rosters`/`players` specs to use `isScout`/`isSuperadmin` fixtures instead of club-membership
+roles, and added new tests asserting a Coach/CLUB_ADMIN is rejected where they used to be allowed).
+
+### Frontend (`apps/web`)
+
+`CurrentUser` gained `isScout`. Every page that gated a write form on `CLUB_ADMIN`/`COACH`
+club-membership now gates on `currentUser?.isSuperadmin` (matches/tournaments/teams/rosters/
+players) or `currentUser?.isSuperadmin || currentUser?.isScout` (tagging) instead — same
+"UI mirrors backend, backend is the real authority" pattern already used everywhere else in this
+app: `TournamentsListPage`/`TournamentDetailPage` (create tournament/match), `MatchDetailPage`
+(record result), `ClubDetailPage` (split what used to be one `isClubAdmin`-gated block into
+`canManageTeams`/`canCreatePlayer`, both Superadmin-only now, vs. `isClubAdmin` which still gates
+club-profile/invites, unaffected), `PlayerDetailPage` (edit), and `TeamDetailPage` (previously had
+**no** gating at all on roster create/add/remove buttons — added `canManageRoster` gating there
+for the first time, since Admin-only enforcement now actually matters for that page).
+
+**`TaggingPage`** (the biggest one): added `canTag = isSuperadmin || isScout` and gated the
+keydown hotkey handler, `markIn`/`markOut`, `handleActionType`, the video-registration panel, the
+team/player pickers + action-type button grid, per-tag edit/delete buttons, and the lock button —
+all behind it. What a Coach still sees on this exact page, unblocked: the video player itself (if
+registered), the read-only tag list with clip links (`ClipBadge`), and — deliberately left
+available to everyone, not just Scout/Admin — the compilation builder, since building a
+compilation only reads existing tags/clips and the backend never restricted it either. When no
+video is registered yet, a Coach sees a plain "no video registered yet" message instead of the
+upload/YouTube-link panel.
+
+**New page**: `SelectMatchToTagPage` (`/tag`, linked from `NavBar` only for Scout/Admin) — the
+literal "select an existing Tournament → Match from dropdowns" entry point the user asked for:
+a Tournament `<select>`, then a Match `<select>` scoped to it, navigating straight to the existing
+`/matches/:matchId/tag` screen on selection. Scouts never get a tournament/match *creation* UI
+anywhere — this page only ever lists what an Admin already created.
+
+22/22 frontend tests pass (9 files — added `SelectMatchToTagPage.test.tsx` and a new "RBAC" describe
+block in `TaggingPage.test.tsx` asserting a Coach sees no action buttons/lock button/video panel;
+fixed `TeamDetailPage.test.tsx`, which had never needed a token/`, /users/me` mock before because
+the page had no RBAC gating until this session — it does now, so the test needed both).
+
+### Demo data (`apps/api/prisma/seed.ts`)
+
+Full `prisma migrate reset --force` + reseed. Same 4 clubs/teams/players/tournament as before,
+plus: **a `COACH` ClubMembership per club** (didn't exist in the seed before — Coach was never
+actually seedable, only inferred from the invite flow), and **exactly two Scout users** —
+`nikola.scout@3x3app.local` / `vukasin.scout@3x3app.local` (`isScout: true`, no `ClubMembership`
+at all, seeded directly like the superadmin — the invite-accept flow structurally can't create
+one since it always attaches a `ClubMembership` to a specific club, and a global permission has
+no single inviting club). Also seeded **two real `SCHEDULED` matches** under the existing
+tournament, pairing every club's senior team once (`match-dunav-vs-sava`, `match-morava-vs-drina`)
+— deliberately left with no video/tags/lock, so the full workflow (Admin already scheduled these;
+a Scout picks Tournament → Match, adds video, tags, locks; a Coach then views the result) is
+something to actually click through live, not something the seed pre-fakes.
+
+**Verified against the live stack, both via `curl` and a real connected browser, not just unit
+tests**: logged in as Scout Nikola → registered a YouTube video and created a tag on
+`match-dunav-vs-sava` via the real API (cleaned up afterward so the seed match stays pristine for
+manual testing) → confirmed a Coach gets a real `403` (`"Only a Scout or Admin can manage this
+match's video/tags."`) attempting the same, and a real `403` locking a match, while `GET`ting the
+same match's tags still returns `200` with the Scout's tag visible → confirmed a `CLUB_ADMIN` gets
+`403` creating a tournament/team/roster/player (each with the correct new message), while still
+succeeding at sending a club invite (unaffected feature) → confirmed a Scout gets `403` trying to
+create a tournament or match (no accidental Admin-power leakage) → confirmed Superadmin succeeds
+creating a tournament (cleaned up afterward). In the real browser: logged in as Nikola, used the
+actual `/tag` page's Tournament→Match dropdowns, landed on the real tagging screen showing the
+upload/YouTube panel and "Lock match" button; switched to the Coach login in the same tab and
+confirmed the identical URL now shows "No video registered for this match yet." with no tagging
+controls at all, the `/tournaments` page shows no create form, and the "Tag a Match" nav link
+itself is gone from `NavBar`.
+
+---
+
 # Progress / Handoff
 
 **Read this file first at the start of any session, before doing anything else.** Update it after

@@ -1,4 +1,4 @@
-import { PrismaClient, Role, TournamentFormat } from "@prisma/client";
+import { MatchStatus, PrismaClient, Role, TournamentFormat } from "@prisma/client";
 import * as argon2 from "argon2";
 
 const prisma = new PrismaClient();
@@ -9,6 +9,8 @@ interface ClubSeed {
   city: string;
   adminEmail: string;
   adminPassword: string;
+  coachEmail: string;
+  coachPassword: string;
   teams: { id: string; name: string; jerseyColor: string }[];
   players: { id: string; firstName: string; lastName: string }[];
 }
@@ -20,6 +22,8 @@ const CLUBS: ClubSeed[] = [
     city: "Beograd",
     adminEmail: "dunav.admin@3x3app.local",
     adminPassword: "Dunav123!",
+    coachEmail: "dunav.coach@3x3app.local",
+    coachPassword: "DunavCoach123!",
     teams: [
       { id: "team-dunav-seniori", name: "Seniori", jerseyColor: "Blue" },
       { id: "team-dunav-juniori", name: "Juniori", jerseyColor: "Navy" },
@@ -38,6 +42,8 @@ const CLUBS: ClubSeed[] = [
     city: "Novi Sad",
     adminEmail: "sava.admin@3x3app.local",
     adminPassword: "Sava123!",
+    coachEmail: "sava.coach@3x3app.local",
+    coachPassword: "SavaCoach123!",
     teams: [
       { id: "team-sava-seniori", name: "Seniori", jerseyColor: "Green" },
       { id: "team-sava-juniori", name: "Juniori", jerseyColor: "Olive" },
@@ -56,6 +62,8 @@ const CLUBS: ClubSeed[] = [
     city: "Nis",
     adminEmail: "morava.admin@3x3app.local",
     adminPassword: "Morava123!",
+    coachEmail: "morava.coach@3x3app.local",
+    coachPassword: "MoravaCoach123!",
     teams: [
       { id: "team-morava-seniori", name: "Seniori", jerseyColor: "Red" },
       { id: "team-morava-juniori", name: "Juniori", jerseyColor: "Maroon" },
@@ -74,6 +82,8 @@ const CLUBS: ClubSeed[] = [
     city: "Kragujevac",
     adminEmail: "drina.admin@3x3app.local",
     adminPassword: "Drina123!",
+    coachEmail: "drina.coach@3x3app.local",
+    coachPassword: "DrinaCoach123!",
     teams: [
       { id: "team-drina-seniori", name: "Seniori", jerseyColor: "Black" },
       { id: "team-drina-juniori", name: "Juniori", jerseyColor: "Gray" },
@@ -88,7 +98,32 @@ const CLUBS: ClubSeed[] = [
   },
 ];
 
+// Exactly two Scouts, seeded directly (not via the club-invite flow — a global, club-independent
+// permission has no single inviting club to attach an Invite row to; see the Role enum's SCOUT
+// comment and User.isScout for why this is a flag, not a ClubMembership role).
+interface ScoutSeed {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+const SCOUTS: ScoutSeed[] = [
+  { id: "scout-nikola", firstName: "Nikola", lastName: "Scout", email: "nikola.scout@3x3app.local", password: "NikolaScout123!" },
+  { id: "scout-vukasin", firstName: "Vukasin", lastName: "Scout", email: "vukasin.scout@3x3app.local", password: "VukasinScout123!" },
+];
+
 const TOURNAMENT_ID = "tournament-regionalni-kup-2026";
+
+// Scheduled, untagged matches — deliberately left with no video/tags/lock so the full workflow
+// (Admin already created these; a Scout picks Tournament -> Match, adds video, tags, locks; a
+// Coach then views the result) is something to actually exercise live, not something the seed
+// pre-fakes. Pairs every club's senior team once.
+const MATCHES = [
+  { id: "match-dunav-vs-sava", homeTeamId: "team-dunav-seniori", awayTeamId: "team-sava-seniori" },
+  { id: "match-morava-vs-drina", homeTeamId: "team-morava-seniori", awayTeamId: "team-drina-seniori" },
+];
 
 async function main() {
   const superadminEmail = process.env.SEED_SUPERADMIN_EMAIL ?? "admin@3x3app.local";
@@ -106,6 +141,21 @@ async function main() {
     },
   });
   console.log(`Seeded superadmin: ${superadmin.email}`);
+
+  for (const scoutSeed of SCOUTS) {
+    const scout = await prisma.user.upsert({
+      where: { email: scoutSeed.email },
+      update: { isScout: true },
+      create: {
+        email: scoutSeed.email,
+        passwordHash: await argon2.hash(scoutSeed.password),
+        firstName: scoutSeed.firstName,
+        lastName: scoutSeed.lastName,
+        isScout: true,
+      },
+    });
+    console.log(`Seeded scout: ${scout.email}`);
+  }
 
   for (const clubSeed of CLUBS) {
     const club = await prisma.club.upsert({
@@ -128,6 +178,24 @@ async function main() {
       where: { userId_clubId: { userId: admin.id, clubId: club.id } },
       update: { role: Role.CLUB_ADMIN },
       create: { userId: admin.id, clubId: club.id, role: Role.CLUB_ADMIN },
+    });
+
+    // A COACH per club — read-only under the new RBAC model (views stats/tags/clips, cannot
+    // upload video, tag, lock, or manage tournaments/matches/teams/rosters/players).
+    const coach = await prisma.user.upsert({
+      where: { email: clubSeed.coachEmail },
+      update: {},
+      create: {
+        email: clubSeed.coachEmail,
+        passwordHash: await argon2.hash(clubSeed.coachPassword),
+        firstName: clubSeed.name,
+        lastName: "Coach",
+      },
+    });
+    await prisma.clubMembership.upsert({
+      where: { userId_clubId: { userId: coach.id, clubId: club.id } },
+      update: { role: Role.COACH },
+      create: { userId: coach.id, clubId: club.id, role: Role.COACH },
     });
 
     for (const teamSeed of clubSeed.teams) {
@@ -157,7 +225,7 @@ async function main() {
     }
 
     console.log(
-      `Seeded club: ${club.name} (${club.city}) — admin ${admin.email}, ` +
+      `Seeded club: ${club.name} (${club.city}) — admin ${admin.email}, coach ${coach.email}, ` +
         `${clubSeed.teams.length} teams, ${clubSeed.players.length} players`
     );
   }
@@ -194,6 +262,24 @@ async function main() {
     }
   }
   console.log(`Seeded tournament: ${tournament.name} with a roster for each club's senior team`);
+
+  // Superadmin is the createdById here purely for the FK — match creation is Admin-only, and
+  // the superadmin is the one seeding these as already-scheduled fixtures for a Scout to tag.
+  for (const matchSeed of MATCHES) {
+    await prisma.match.upsert({
+      where: { id: matchSeed.id },
+      update: {},
+      create: {
+        id: matchSeed.id,
+        tournamentId: tournament.id,
+        homeTeamId: matchSeed.homeTeamId,
+        awayTeamId: matchSeed.awayTeamId,
+        status: MatchStatus.SCHEDULED,
+        createdById: superadmin.id,
+      },
+    });
+  }
+  console.log(`Seeded ${MATCHES.length} scheduled matches, ready for a Scout to add video and tag`);
 }
 
 main()

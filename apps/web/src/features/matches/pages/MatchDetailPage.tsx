@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
-import { MatchEndType, recordMatchResultSchema, RecordMatchResultDto, Role } from "@3x3/shared";
+import { MatchEndType, recordMatchResultSchema, RecordMatchResultDto } from "@3x3/shared";
 import { useMatch, useRecordMatchResult } from "../api";
 import { useTeam } from "../../teams/api";
 import { useCurrentUser } from "../../auth/api";
@@ -25,15 +25,9 @@ export function MatchDetailPage() {
     enabled: Boolean(match?.lockedAt),
   });
 
-  const canRecordResult =
-    currentUser?.isSuperadmin ||
-    (homeTeam &&
-      awayTeam &&
-      currentUser?.memberships.some(
-        (m) =>
-          (m.clubId === homeTeam.clubId || m.clubId === awayTeam.clubId) &&
-          (m.role === Role.CLUB_ADMIN || m.role === Role.COACH)
-      ));
+  // UI-level gating only — the real authority is the server, which requires an Admin
+  // (superadmin) for match results, per the RBAC overhaul (see PROGRESS.md).
+  const canRecordResult = currentUser?.isSuperadmin;
 
   const {
     register,

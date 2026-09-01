@@ -14,6 +14,7 @@ export class UsersService {
         firstName: true,
         lastName: true,
         isSuperadmin: true,
+        isScout: true,
         locale: true,
         memberships: {
           select: { clubId: true, role: true, club: { select: { name: true } } },

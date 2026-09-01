@@ -32,9 +32,12 @@ export function ClubDetailPage() {
   const [inviteSent, setInviteSent] = useState(false);
 
   const membershipRole = currentUser?.memberships.find((m) => m.clubId === clubId)?.role;
+  // Club profile management + inviting members is still CLUB_ADMIN territory — unaffected by
+  // the RBAC overhaul. Team creation and player-record creation, however, are Admin-only now
+  // (see PROGRESS.md's RBAC overhaul note) — real authority is the server either way.
   const isClubAdmin = currentUser?.isSuperadmin || membershipRole === Role.CLUB_ADMIN;
-  const canManageRoster =
-    isClubAdmin || membershipRole === Role.COACH;
+  const canManageTeams = currentUser?.isSuperadmin;
+  const canCreatePlayer = currentUser?.isSuperadmin;
 
   const teamForm = useForm<CreateTeamDto>({ resolver: zodResolver(createTeamSchema) });
   const inviteForm = useForm<CreateInviteDto>({ resolver: zodResolver(createInviteSchema) });
@@ -62,7 +65,7 @@ export function ClubDetailPage() {
         {teams?.length === 0 && <li>{t("clubs.detail.noTeams")}</li>}
       </ul>
 
-      {canManageRoster && (
+      {canCreatePlayer && (
         <div style={{ marginTop: 16 }}>
           <h3>{t("clubs.detail.createPlayer")}</h3>
           <form
@@ -90,29 +93,31 @@ export function ClubDetailPage() {
         </div>
       )}
 
+      {canManageTeams && (
+        <div style={{ marginTop: 16 }}>
+          <h3>{t("clubs.detail.createTeam")}</h3>
+          <form
+            onSubmit={teamForm.handleSubmit((dto) =>
+              createTeam.mutate(dto, { onSuccess: () => teamForm.reset() })
+            )}
+          >
+            <input
+              {...teamForm.register("name")}
+              placeholder={t("clubs.detail.teamName") ?? ""}
+              style={{ marginRight: 8 }}
+            />
+            <button type="submit" disabled={createTeam.isPending}>
+              {t("clubs.detail.createTeamSubmit")}
+            </button>
+            {teamForm.formState.errors.name && (
+              <p style={{ color: "red" }}>{teamForm.formState.errors.name.message}</p>
+            )}
+          </form>
+        </div>
+      )}
+
       {isClubAdmin && (
         <>
-          <div style={{ marginTop: 16 }}>
-            <h3>{t("clubs.detail.createTeam")}</h3>
-            <form
-              onSubmit={teamForm.handleSubmit((dto) =>
-                createTeam.mutate(dto, { onSuccess: () => teamForm.reset() })
-              )}
-            >
-              <input
-                {...teamForm.register("name")}
-                placeholder={t("clubs.detail.teamName") ?? ""}
-                style={{ marginRight: 8 }}
-              />
-              <button type="submit" disabled={createTeam.isPending}>
-                {t("clubs.detail.createTeamSubmit")}
-              </button>
-              {teamForm.formState.errors.name && (
-                <p style={{ color: "red" }}>{teamForm.formState.errors.name.message}</p>
-              )}
-            </form>
-          </div>
-
           <div style={{ marginTop: 24 }}>
             <h2>{t("clubs.detail.invite")}</h2>
             <form

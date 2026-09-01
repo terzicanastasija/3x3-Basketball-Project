@@ -11,6 +11,7 @@ import { TournamentsListPage } from "../features/tournaments/pages/TournamentsLi
 import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
 import { MatchDetailPage } from "../features/matches/pages/MatchDetailPage";
 import { TaggingPage } from "../features/video-tagging/pages/TaggingPage";
+import { SelectMatchToTagPage } from "../features/video-tagging/pages/SelectMatchToTagPage";
 import { MatchDashboardPage } from "../features/dashboards/pages/MatchDashboardPage";
 import { TeamDashboardPage } from "../features/dashboards/pages/TeamDashboardPage";
 import { PlayerDashboardPage } from "../features/dashboards/pages/PlayerDashboardPage";
@@ -90,6 +91,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <MatchDetailPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/tag",
+    element: (
+      <RequireAuth>
+        <SelectMatchToTagPage />
       </RequireAuth>
     ),
   },

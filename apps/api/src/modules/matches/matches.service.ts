@@ -1,10 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { MatchStatus, Role } from "@3x3/shared";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { MatchStatus } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 import { CreateMatchDto, RecordMatchResultDto, UpdateMatchDto } from "@3x3/shared";
-
-const MANAGE_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 
 @Injectable()
 export class MatchesService {
@@ -26,22 +24,15 @@ export class MatchesService {
     return match;
   }
 
-  async create(
-    user: AuthenticatedUser,
-    clubContext: ClubContext,
-    tournamentId: string,
-    dto: CreateMatchDto
-  ) {
+  async create(user: AuthenticatedUser, tournamentId: string, dto: CreateMatchDto) {
+    this.assertIsAdmin(user);
     const [homeTeam, awayTeam] = await Promise.all([
-      this.prisma.team.findUnique({ where: { id: dto.homeTeamId }, select: { clubId: true } }),
-      this.prisma.team.findUnique({ where: { id: dto.awayTeamId }, select: { clubId: true } }),
+      this.prisma.team.findUnique({ where: { id: dto.homeTeamId }, select: { id: true } }),
+      this.prisma.team.findUnique({ where: { id: dto.awayTeamId }, select: { id: true } }),
     ]);
     if (!homeTeam || !awayTeam) {
       throw new NotFoundException("Home or away team not found.");
     }
-    // Either side of the matchup may schedule it — a club admin/coach from the home team's
-    // club or the away team's club, not necessarily both.
-    this.assertCanManage(user, clubContext, [homeTeam.clubId, awayTeam.clubId]);
 
     return this.prisma.match.create({
       data: {
@@ -54,18 +45,13 @@ export class MatchesService {
     });
   }
 
-  async update(user: AuthenticatedUser, clubContext: ClubContext, matchId: string, dto: UpdateMatchDto) {
-    await this.ensureEditable(user, clubContext, matchId);
+  async update(user: AuthenticatedUser, matchId: string, dto: UpdateMatchDto) {
+    await this.ensureEditable(user, matchId);
     return this.prisma.match.update({ where: { id: matchId }, data: dto });
   }
 
-  async recordResult(
-    user: AuthenticatedUser,
-    clubContext: ClubContext,
-    matchId: string,
-    dto: RecordMatchResultDto
-  ) {
-    await this.ensureEditable(user, clubContext, matchId);
+  async recordResult(user: AuthenticatedUser, matchId: string, dto: RecordMatchResultDto) {
+    await this.ensureEditable(user, matchId);
     return this.prisma.match.update({
       where: { id: matchId },
       data: {
@@ -79,33 +65,29 @@ export class MatchesService {
     });
   }
 
-  async remove(user: AuthenticatedUser, clubContext: ClubContext, matchId: string) {
-    const match = await this.ensureEditable(user, clubContext, matchId);
-    // A played match's result can still be corrected via PATCH .../result, but not silently
-    // deleted — superadmin can override for genuine cleanup (e.g. a duplicate/mistaken match).
-    if (match.status === MatchStatus.PLAYED && !user.isSuperadmin) {
-      throw new BadRequestException("Cannot delete a played match — correct the result instead.");
-    }
+  async remove(user: AuthenticatedUser, matchId: string) {
+    // Only an Admin ever reaches this point (ensureEditable enforces it below), so — same as
+    // before this RBAC overhaul — a played match's deletion isn't blocked here: the Admin
+    // retains that override for genuine cleanup (e.g. a duplicate/mistaken match). Everyone
+    // else is already rejected by ensureEditable before this line matters at all.
+    await this.ensureEditable(user, matchId);
     await this.prisma.match.delete({ where: { id: matchId } });
   }
 
-  private async ensureEditable(user: AuthenticatedUser, clubContext: ClubContext, matchId: string) {
-    const match = await this.prisma.match.findUnique({
-      where: { id: matchId },
-      include: { homeTeam: { select: { clubId: true } }, awayTeam: { select: { clubId: true } } },
-    });
+  private async ensureEditable(user: AuthenticatedUser, matchId: string) {
+    this.assertIsAdmin(user);
+    const match = await this.prisma.match.findUnique({ where: { id: matchId } });
     if (!match) {
       throw new NotFoundException("Match not found.");
     }
-    this.assertCanManage(user, clubContext, [match.homeTeam.clubId, match.awayTeam.clubId]);
     return match;
   }
 
-  private assertCanManage(user: AuthenticatedUser, clubContext: ClubContext, clubIds: string[]) {
-    if (user.isSuperadmin) return;
-    const canManage = clubIds.some((clubId) => MANAGE_ROLES.includes(clubContext.roleByClubId[clubId]));
-    if (!canManage) {
-      throw new ForbiddenException("You must be a club admin or coach of the home or away team's club.");
+  // Match management (create/edit/schedule/delete) is Admin-only — see PROGRESS.md's RBAC
+  // overhaul note for why this is no longer shared with CLUB_ADMIN/COACH.
+  private assertIsAdmin(user: AuthenticatedUser) {
+    if (!user.isSuperadmin) {
+      throw new ForbiddenException("Only an Admin can manage matches.");
     }
   }
 }

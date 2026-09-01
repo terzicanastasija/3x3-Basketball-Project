@@ -118,6 +118,12 @@ model User {
   // Platform-level role with no club scope. SUPERADMIN users are not expected to hold any
   // ClubMembership rows — club-scoped roles (CLUB_ADMIN/COACH/...) live on ClubMembership instead.
   isSuperadmin  Boolean  @default(false)
+  // Platform-level flag, same shape as isSuperadmin: a Scout can upload video / tag / lock
+  // ANY match across ANY club, so this deliberately bypasses ClubMembership scoping entirely
+  // rather than requiring a SCOUT membership row per club. Exactly two users hold this today
+  // (seeded directly, not via the club-invite flow, since a global permission has no single
+  // inviting club to attach an Invite row to).
+  isScout       Boolean  @default(false)
   locale        String   @default("sr")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

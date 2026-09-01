@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TeamDetailPage } from "./TeamDetailPage";
+import { authStorage } from "../../../lib/auth-storage";
 import "../../../i18n";
 
 function jsonResponse(body: unknown, init: { status?: number } = {}) {
@@ -34,11 +35,24 @@ describe("TeamDetailPage roster builder", () => {
     vi.restoreAllMocks();
     rosterExists = false;
     rosterPlayers = [];
+    authStorage.setTokens("test-access-token", "test-refresh-token");
 
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
 
+      if (url.endsWith("/users/me")) {
+        return jsonResponse({
+          id: "user-1",
+          email: "admin@test.local",
+          firstName: "Super",
+          lastName: "Admin",
+          isSuperadmin: true,
+          isScout: false,
+          locale: "en",
+          memberships: [],
+        });
+      }
       if (url.endsWith("/teams/team-1")) {
         return jsonResponse({ id: "team-1", clubId: "club-1", name: "U18 Boys", jerseyColor: null });
       }

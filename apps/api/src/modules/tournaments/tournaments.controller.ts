@@ -2,8 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import { ZodValidationPipe } from "nestjs-zod";
 import { TournamentsService } from "./tournaments.service";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import { CurrentClubContext } from "../../common/decorators/club-context.decorator";
-import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 import {
   createTournamentSchema,
   CreateTournamentDto,
@@ -28,29 +27,23 @@ export class TournamentsController {
   @Post()
   create(
     @CurrentUser() user: AuthenticatedUser,
-    @CurrentClubContext() clubContext: ClubContext,
     @Body(new ZodValidationPipe(createTournamentSchema)) dto: CreateTournamentDto
   ) {
-    return this.tournamentsService.create(user, clubContext, dto);
+    return this.tournamentsService.create(user, dto);
   }
 
   @Patch(":tournamentId")
   update(
     @Param("tournamentId") tournamentId: string,
     @CurrentUser() user: AuthenticatedUser,
-    @CurrentClubContext() clubContext: ClubContext,
     @Body(new ZodValidationPipe(updateTournamentSchema)) dto: UpdateTournamentDto
   ) {
-    return this.tournamentsService.update(user, clubContext, tournamentId, dto);
+    return this.tournamentsService.update(user, tournamentId, dto);
   }
 
   @Delete(":tournamentId")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(
-    @Param("tournamentId") tournamentId: string,
-    @CurrentUser() user: AuthenticatedUser,
-    @CurrentClubContext() clubContext: ClubContext
-  ) {
-    await this.tournamentsService.remove(user, clubContext, tournamentId);
+  async remove(@Param("tournamentId") tournamentId: string, @CurrentUser() user: AuthenticatedUser) {
+    await this.tournamentsService.remove(user, tournamentId);
   }
 }

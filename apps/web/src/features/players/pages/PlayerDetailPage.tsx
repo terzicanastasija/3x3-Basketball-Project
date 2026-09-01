@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
-import { Handedness, Role, updatePlayerSchema, UpdatePlayerDto } from "@3x3/shared";
+import { Handedness, updatePlayerSchema, UpdatePlayerDto } from "@3x3/shared";
 import { usePlayer, useUpdatePlayer } from "../api";
 import { useCurrentUser } from "../../auth/api";
 import { ApiError } from "../../../lib/api-client";
@@ -16,12 +16,9 @@ export function PlayerDetailPage() {
   const { data: player, isLoading } = usePlayer(playerId);
   const updatePlayer = useUpdatePlayer(playerId ?? "");
 
-  const canEdit =
-    currentUser?.isSuperadmin ||
-    (player?.homeClubId &&
-      currentUser?.memberships.some(
-        (m) => m.clubId === player.homeClubId && (m.role === Role.CLUB_ADMIN || m.role === Role.COACH)
-      ));
+  // UI-level gating only — the real authority is the server, which requires an Admin
+  // (superadmin) for player-record management, per the RBAC overhaul (see PROGRESS.md).
+  const canEdit = currentUser?.isSuperadmin;
 
   const {
     register,

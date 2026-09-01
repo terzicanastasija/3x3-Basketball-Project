@@ -31,7 +31,7 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password.");
     }
 
-    return this.issueTokenPair(user.id, user.email, user.isSuperadmin);
+    return this.issueTokenPair(user.id, user.email, user.isSuperadmin, user.isScout);
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {
@@ -60,7 +60,7 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    return this.issueTokenPair(user.id, user.email, user.isSuperadmin);
+    return this.issueTokenPair(user.id, user.email, user.isSuperadmin, user.isScout);
   }
 
   async acceptInvite(dto: AcceptInviteDto): Promise<TokenPair> {
@@ -95,16 +95,17 @@ export class AuthService {
       return created;
     });
 
-    return this.issueTokenPair(user.id, user.email, user.isSuperadmin);
+    return this.issueTokenPair(user.id, user.email, user.isSuperadmin, user.isScout);
   }
 
   private async issueTokenPair(
     userId: string,
     email: string,
-    isSuperadmin: boolean
+    isSuperadmin: boolean,
+    isScout: boolean
   ): Promise<TokenPair> {
     const accessToken = this.jwtService.sign(
-      { sub: userId, email, isSuperadmin },
+      { sub: userId, email, isSuperadmin, isScout },
       {
         secret: this.configService.get("JWT_ACCESS_SECRET", { infer: true }),
         expiresIn: this.configService.get("JWT_ACCESS_TTL", { infer: true }),

@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
-import { ActionType, Role, VideoSourceType } from "@3x3/shared";
+import { ActionType, VideoSourceType } from "@3x3/shared";
 import { TagsService } from "./tags.service";
-import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 
 function makePrismaMock() {
   return {
@@ -20,21 +20,11 @@ function makeClipQueueMock() {
   return { enqueueClipGeneration: jest.fn() };
 }
 
-const coachUser: AuthenticatedUser = { id: "user-1", email: "coach@test.local", isSuperadmin: false };
-const homeClubCoachContext: ClubContext = {
-  accessibleClubIds: ["club-home"],
-  roleByClubId: { "club-home": Role.COACH },
-};
+const scoutUser: AuthenticatedUser = { id: "user-1", email: "scout@test.local", isSuperadmin: false, isScout: true };
+const coachUser: AuthenticatedUser = { id: "user-2", email: "coach@test.local", isSuperadmin: false, isScout: false };
 
 function unlockedMatch() {
-  return {
-    id: "match-1",
-    homeTeamId: "team-home",
-    awayTeamId: "team-away",
-    lockedAt: null,
-    homeTeam: { clubId: "club-home" },
-    awayTeam: { clubId: "club-away" },
-  };
+  return { id: "match-1", homeTeamId: "team-home", awayTeamId: "team-away", lockedAt: null };
 }
 
 function lockedMatch() {
@@ -48,7 +38,7 @@ describe("TagsService.create", () => {
     prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
-    await service.create(coachUser, homeClubCoachContext, "match-1", {
+    await service.create(scoutUser, "match-1", {
       timestampSec: 12.5,
       actionType: ActionType.SHOT_2PT_MADE,
       teamId: "team-home",
@@ -67,7 +57,7 @@ describe("TagsService.create", () => {
     prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
-    await service.create(coachUser, homeClubCoachContext, "match-1", {
+    await service.create(scoutUser, "match-1", {
       timestampSec: 5,
       actionType: ActionType.STEAL,
       teamId: "team-home",
@@ -84,7 +74,7 @@ describe("TagsService.create", () => {
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await expect(
-      service.create(coachUser, homeClubCoachContext, "match-1", {
+      service.create(scoutUser, "match-1", {
         timestampSec: 5,
         actionType: ActionType.STEAL,
         teamId: "some-other-team",
@@ -98,7 +88,7 @@ describe("TagsService.create", () => {
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await expect(
-      service.create(coachUser, homeClubCoachContext, "match-1", {
+      service.create(scoutUser, "match-1", {
         timestampSec: 5,
         actionType: ActionType.STEAL,
         teamId: "team-home",
@@ -107,14 +97,13 @@ describe("TagsService.create", () => {
     expect(prisma.actionTag.create).not.toHaveBeenCalled();
   });
 
-  it("rejects a caller with no role in either team's club", async () => {
+  it("rejects a Coach — tagging is Scout-or-Admin only, not club-scoped like Coach's other permissions", async () => {
     const prisma = makePrismaMock();
     prisma.match.findUnique.mockResolvedValue(unlockedMatch());
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
-    const outsiderContext: ClubContext = { accessibleClubIds: ["club-other"], roleByClubId: {} };
 
     await expect(
-      service.create(coachUser, outsiderContext, "match-1", {
+      service.create(coachUser, "match-1", {
         timestampSec: 5,
         actionType: ActionType.STEAL,
         teamId: "team-home",
@@ -130,7 +119,7 @@ describe("TagsService.create", () => {
     const clipQueue = makeClipQueueMock();
     const service = new TagsService(prisma as never, makeQueueMock() as never, clipQueue as never);
 
-    await service.create(coachUser, homeClubCoachContext, "match-1", {
+    await service.create(scoutUser, "match-1", {
       timestampSec: 5,
       actionType: ActionType.SHOT_2PT_MADE,
       teamId: "team-home",
@@ -149,7 +138,7 @@ describe("TagsService.create", () => {
     const clipQueue = makeClipQueueMock();
     const service = new TagsService(prisma as never, makeQueueMock() as never, clipQueue as never);
 
-    await service.create(coachUser, homeClubCoachContext, "match-1", {
+    await service.create(scoutUser, "match-1", {
       timestampSec: 5,
       actionType: ActionType.SHOT_2PT_MADE,
       teamId: "team-home",
@@ -167,7 +156,7 @@ describe("TagsService.create", () => {
     const clipQueue = makeClipQueueMock();
     const service = new TagsService(prisma as never, makeQueueMock() as never, clipQueue as never);
 
-    await service.create(coachUser, homeClubCoachContext, "match-1", {
+    await service.create(scoutUser, "match-1", {
       timestampSec: 5,
       actionType: ActionType.STEAL,
       teamId: "team-home",
@@ -186,9 +175,9 @@ describe("TagsService.update / remove", () => {
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
-    await expect(
-      service.update(coachUser, homeClubCoachContext, "tag-1", { timestampSec: 10 })
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.update(scoutUser, "tag-1", { timestampSec: 10 })).rejects.toBeInstanceOf(
+      BadRequestException
+    );
     expect(prisma.actionTag.update).not.toHaveBeenCalled();
   });
 
@@ -198,9 +187,7 @@ describe("TagsService.update / remove", () => {
     prisma.match.findUnique.mockResolvedValue(lockedMatch());
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
-    await expect(service.remove(coachUser, homeClubCoachContext, "tag-1")).rejects.toBeInstanceOf(
-      BadRequestException
-    );
+    await expect(service.remove(scoutUser, "tag-1")).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.actionTag.delete).not.toHaveBeenCalled();
   });
 
@@ -211,11 +198,23 @@ describe("TagsService.update / remove", () => {
     prisma.actionTag.update.mockResolvedValue({ id: "tag-1" });
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
-    await service.update(coachUser, homeClubCoachContext, "tag-1", { timestampSec: 10 });
-    await service.remove(coachUser, homeClubCoachContext, "tag-1");
+    await service.update(scoutUser, "tag-1", { timestampSec: 10 });
+    await service.remove(scoutUser, "tag-1");
 
     expect(prisma.actionTag.update).toHaveBeenCalled();
     expect(prisma.actionTag.delete).toHaveBeenCalledWith({ where: { id: "tag-1" } });
+  });
+
+  it("rejects a Coach editing or deleting a tag", async () => {
+    const prisma = makePrismaMock();
+    prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await expect(service.update(coachUser, "tag-1", { timestampSec: 10 })).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
+    await expect(service.remove(coachUser, "tag-1")).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
 
@@ -227,7 +226,7 @@ describe("TagsService.lockMatch", () => {
     prisma.match.update.mockResolvedValue({ id: "match-1", lockedAt: new Date() });
     const service = new TagsService(prisma as never, queue as never, makeClipQueueMock() as never);
 
-    await service.lockMatch(coachUser, homeClubCoachContext, "match-1");
+    await service.lockMatch(scoutUser, "match-1");
 
     expect(prisma.match.update).toHaveBeenCalledWith({
       where: { id: "match-1" },
@@ -243,10 +242,18 @@ describe("TagsService.lockMatch", () => {
     prisma.match.findUnique.mockResolvedValue(already);
     const service = new TagsService(prisma as never, queue as never, makeClipQueueMock() as never);
 
-    const result = await service.lockMatch(coachUser, homeClubCoachContext, "match-1");
+    const result = await service.lockMatch(scoutUser, "match-1");
 
     expect(result).toBe(already);
     expect(prisma.match.update).not.toHaveBeenCalled();
     expect(queue.enqueueMatchRecompute).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Coach locking a match", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await expect(service.lockMatch(coachUser, "match-1")).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

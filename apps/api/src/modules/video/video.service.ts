@@ -1,12 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import { Role, VideoProcessingStatus, VideoSourceType } from "@3x3/shared";
+import { VideoProcessingStatus, VideoSourceType } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { S3Service } from "../../common/s3/s3.service";
-import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 import { RegisterVideoDto, RequestUploadUrlDto } from "@3x3/shared";
-
-const MANAGE_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 
 @Injectable()
 export class VideoService {
@@ -19,13 +17,8 @@ export class VideoService {
     return this.prisma.videoAsset.findMany({ where: { matchId }, orderBy: { createdAt: "asc" } });
   }
 
-  async requestUploadUrl(
-    user: AuthenticatedUser,
-    clubContext: ClubContext,
-    matchId: string,
-    dto: RequestUploadUrlDto
-  ) {
-    await this.assertCanManageMatch(user, clubContext, matchId);
+  async requestUploadUrl(user: AuthenticatedUser, matchId: string, dto: RequestUploadUrlDto) {
+    await this.assertCanManageMatch(user, matchId);
     // Namespaced by matchId so keys never collide across matches; randomUUID so concurrent
     // uploads of same-named files never collide either.
     const fileKey = `matches/${matchId}/${randomUUID()}-${dto.fileName}`;
@@ -33,8 +26,8 @@ export class VideoService {
     return { fileKey, uploadUrl };
   }
 
-  async register(user: AuthenticatedUser, clubContext: ClubContext, matchId: string, dto: RegisterVideoDto) {
-    await this.assertCanManageMatch(user, clubContext, matchId);
+  async register(user: AuthenticatedUser, matchId: string, dto: RegisterVideoDto) {
+    await this.assertCanManageMatch(user, matchId);
     return this.prisma.videoAsset.create({
       data: {
         matchId,
@@ -62,7 +55,7 @@ export class VideoService {
     return { url, sourceType: video.sourceType };
   }
 
-  async remove(user: AuthenticatedUser, clubContext: ClubContext, videoAssetId: string) {
+  async remove(user: AuthenticatedUser, videoAssetId: string) {
     const video = await this.prisma.videoAsset.findUnique({
       where: { id: videoAssetId },
       include: { _count: { select: { actionTags: true } } },
@@ -70,7 +63,7 @@ export class VideoService {
     if (!video) {
       throw new NotFoundException("Video not found.");
     }
-    await this.assertCanManageMatch(user, clubContext, video.matchId);
+    await this.assertCanManageMatch(user, video.matchId);
     if (video._count.actionTags > 0) {
       throw new BadRequestException("Cannot delete a video that already has tags against it.");
     }
@@ -80,19 +73,15 @@ export class VideoService {
     await this.prisma.videoAsset.delete({ where: { id: videoAssetId } });
   }
 
-  private async assertCanManageMatch(user: AuthenticatedUser, clubContext: ClubContext, matchId: string) {
-    if (user.isSuperadmin) return;
-    const match = await this.prisma.match.findUnique({
-      where: { id: matchId },
-      include: { homeTeam: { select: { clubId: true } }, awayTeam: { select: { clubId: true } } },
-    });
+  // Video upload/registration is Scout-or-Admin only, globally — not club-scoped like most
+  // other write paths in this app. See Role enum's SCOUT comment for why.
+  private async assertCanManageMatch(user: AuthenticatedUser, matchId: string) {
+    const match = await this.prisma.match.findUnique({ where: { id: matchId }, select: { id: true } });
     if (!match) {
       throw new NotFoundException("Match not found.");
     }
-    const clubIds = [match.homeTeam.clubId, match.awayTeam.clubId];
-    const canManage = clubIds.some((clubId) => MANAGE_ROLES.includes(clubContext.roleByClubId[clubId]));
-    if (!canManage) {
-      throw new ForbiddenException("You must be a club admin or coach of the home or away team's club.");
+    if (!user.isSuperadmin && !user.isScout) {
+      throw new ForbiddenException("Only a Scout or Admin can manage this match's video.");
     }
   }
 }

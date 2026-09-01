@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
-import { createMatchSchema, CreateMatchDto, Role } from "@3x3/shared";
+import { createMatchSchema, CreateMatchDto } from "@3x3/shared";
 import { useTournament } from "../api";
 import { useCreateMatch, useMatchesForTournament } from "../../matches/api";
 import { useClubs } from "../../clubs/api";
@@ -51,11 +51,9 @@ export function TournamentDetailPage() {
     return Array.from(ids);
   }, [matches]);
 
-  // UI-level gating only (mirrors backend role check loosely) — the real authority is the
-  // server, which requires CLUB_ADMIN/COACH of the home OR away team's club specifically.
-  const canCreateMatch =
-    currentUser?.isSuperadmin ||
-    currentUser?.memberships.some((m) => m.role === Role.CLUB_ADMIN || m.role === Role.COACH);
+  // UI-level gating only — the real authority is the server, which requires an Admin
+  // (superadmin) for match scheduling, per the RBAC overhaul (see PROGRESS.md).
+  const canCreateMatch = currentUser?.isSuperadmin;
 
   const {
     register,

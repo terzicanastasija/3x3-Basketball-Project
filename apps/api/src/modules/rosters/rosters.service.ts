@@ -1,10 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Role } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ClubContext } from "../../common/types/authenticated-request";
 import { AddRosterPlayerDto } from "@3x3/shared";
-
-const EDIT_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 
 @Injectable()
 export class RostersService {
@@ -65,6 +62,9 @@ export class RostersService {
     });
   }
 
+  // Roster management (which players played for which team in a tournament) is Admin-only —
+  // see PROGRESS.md's RBAC overhaul note for why this is no longer shared with
+  // CLUB_ADMIN/COACH. Reads stay open to anyone with access to the team's club.
   private async assertTeamEditable(teamId: string, clubContext: ClubContext, readOnly = false) {
     const team = await this.prisma.team.findUnique({ where: { id: teamId }, select: { clubId: true } });
     if (!team) {
@@ -79,9 +79,6 @@ export class RostersService {
       return;
     }
 
-    const role = clubContext.roleByClubId[team.clubId];
-    if (!role || !EDIT_ROLES.includes(role)) {
-      throw new ForbiddenException("You must be a club admin or coach of this team's club.");
-    }
+    throw new ForbiddenException("Only an Admin can manage rosters.");
   }
 }

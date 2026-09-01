@@ -5,6 +5,7 @@
     "clubs": "Clubs",
     "players": "Players",
     "tournaments": "Tournaments",
+    "tagMatch": "Tag a Match",
     "compilations": "Compilations"
   },
   "auth": {
@@ -162,6 +163,14 @@
   },
   "tagging": {
     "title": "Tag match",
+    "select": {
+      "title": "Tag a match",
+      "tournament": "Tournament",
+      "selectTournament": "Select a tournament",
+      "match": "Match",
+      "selectMatch": "Select a match",
+      "noMatches": "No matches scheduled for this tournament yet."
+    },
     "locked": "Locked",
     "team": "Team",
     "player": "Player",
@@ -192,7 +201,8 @@
       "uploadError": "Upload failed.",
       "youtubeUrl": "YouTube URL",
       "registerYoutube": "Add YouTube link",
-      "changeVideo": "Change video"
+      "changeVideo": "Change video",
+      "noneYet": "No video registered for this match yet."
     },
     "actionType": {
       "SHOT_2PT_MADE": "2pt made",

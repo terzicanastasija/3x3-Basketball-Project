@@ -1,7 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Role } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 import { CreateTournamentDto, UpdateTournamentDto } from "@3x3/shared";
 
 // Full Tournament CRUD (Phase 2) — supersedes the Phase-1 read-only picker stub.
@@ -19,37 +18,20 @@ export class TournamentsService {
     return this.ensureExists(tournamentId);
   }
 
-  async create(user: AuthenticatedUser, clubContext: ClubContext, dto: CreateTournamentDto) {
-    if (!user.isSuperadmin) {
-      if (dto.clubId) {
-        this.assertClubAdmin(clubContext, dto.clubId);
-      } else {
-        // Clubless tournament (multi-club event, no single organizer): allow any caller who
-        // is CLUB_ADMIN of at least one club, rather than requiring superadmin — judgment
-        // call, documented in PROGRESS.md.
-        const isAnyClubAdmin = Object.values(clubContext.roleByClubId).includes(Role.CLUB_ADMIN);
-        if (!isAnyClubAdmin) {
-          throw new ForbiddenException("You must be a CLUB_ADMIN of some club to create a tournament.");
-        }
-      }
-    }
+  async create(user: AuthenticatedUser, dto: CreateTournamentDto) {
+    this.assertIsAdmin(user);
     return this.prisma.tournament.create({ data: dto });
   }
 
-  async update(
-    user: AuthenticatedUser,
-    clubContext: ClubContext,
-    tournamentId: string,
-    dto: UpdateTournamentDto
-  ) {
-    const tournament = await this.ensureExists(tournamentId);
-    this.assertCanManage(user, clubContext, tournament.clubId);
+  async update(user: AuthenticatedUser, tournamentId: string, dto: UpdateTournamentDto) {
+    this.assertIsAdmin(user);
+    await this.ensureExists(tournamentId);
     return this.prisma.tournament.update({ where: { id: tournamentId }, data: dto });
   }
 
-  async remove(user: AuthenticatedUser, clubContext: ClubContext, tournamentId: string) {
-    const tournament = await this.ensureExists(tournamentId);
-    this.assertCanManage(user, clubContext, tournament.clubId);
+  async remove(user: AuthenticatedUser, tournamentId: string) {
+    this.assertIsAdmin(user);
+    await this.ensureExists(tournamentId);
     await this.prisma.tournament.delete({ where: { id: tournamentId } });
   }
 
@@ -61,17 +43,11 @@ export class TournamentsService {
     return tournament;
   }
 
-  private assertCanManage(user: AuthenticatedUser, clubContext: ClubContext, clubId: string | null) {
-    if (user.isSuperadmin) return;
-    if (!clubId) {
-      throw new ForbiddenException("Only a superadmin can modify a tournament with no organizing club.");
-    }
-    this.assertClubAdmin(clubContext, clubId);
-  }
-
-  private assertClubAdmin(clubContext: ClubContext, clubId: string) {
-    if (clubContext.roleByClubId[clubId] !== Role.CLUB_ADMIN) {
-      throw new ForbiddenException("You must be CLUB_ADMIN of the organizing club.");
+  // Tournament management (create/edit/delete) is Admin-only — see PROGRESS.md's RBAC
+  // overhaul note for why this is no longer shared with CLUB_ADMIN.
+  private assertIsAdmin(user: AuthenticatedUser) {
+    if (!user.isSuperadmin) {
+      throw new ForbiddenException("Only an Admin can manage tournaments.");
     }
   }
 }

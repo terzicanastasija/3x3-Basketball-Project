@@ -15,6 +15,7 @@ export interface CurrentUser {
   firstName: string;
   lastName: string;
   isSuperadmin: boolean;
+  isScout: boolean;
   locale: string;
   memberships: { clubId: string; role: Role; club: { name: string } }[];
 }

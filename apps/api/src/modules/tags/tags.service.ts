@@ -1,12 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { pointValueForActionType, Role, VideoSourceType } from "@3x3/shared";
+import { pointValueForActionType, VideoSourceType } from "@3x3/shared";
 import { PrismaService } from "../../prisma/prisma.service";
-import { AuthenticatedUser, ClubContext } from "../../common/types/authenticated-request";
+import { AuthenticatedUser } from "../../common/types/authenticated-request";
 import { CreateTagDto, UpdateTagDto } from "@3x3/shared";
 import { StatRecomputeQueueService } from "../../common/queue/stat-recompute-queue.service";
 import { ClipGenerationQueueService } from "../../common/queue/clip-generation-queue.service";
-
-const MANAGE_ROLES: Role[] = [Role.CLUB_ADMIN, Role.COACH];
 
 @Injectable()
 export class TagsService {
@@ -23,8 +21,8 @@ export class TagsService {
     });
   }
 
-  async create(user: AuthenticatedUser, clubContext: ClubContext, matchId: string, dto: CreateTagDto) {
-    const match = await this.ensureUnlockedAndManageable(user, clubContext, matchId);
+  async create(user: AuthenticatedUser, matchId: string, dto: CreateTagDto) {
+    const match = await this.ensureUnlockedAndManageable(user, matchId);
     if (dto.teamId !== match.homeTeamId && dto.teamId !== match.awayTeamId) {
       throw new BadRequestException("teamId must be the match's home or away team.");
     }
@@ -64,9 +62,9 @@ export class TagsService {
     return tag;
   }
 
-  async update(user: AuthenticatedUser, clubContext: ClubContext, tagId: string, dto: UpdateTagDto) {
+  async update(user: AuthenticatedUser, tagId: string, dto: UpdateTagDto) {
     const tag = await this.findTagOrThrow(tagId);
-    await this.ensureUnlockedAndManageable(user, clubContext, tag.matchId);
+    await this.ensureUnlockedAndManageable(user, tag.matchId);
 
     return this.prisma.actionTag.update({
       where: { id: tagId },
@@ -78,16 +76,16 @@ export class TagsService {
     });
   }
 
-  async remove(user: AuthenticatedUser, clubContext: ClubContext, tagId: string) {
+  async remove(user: AuthenticatedUser, tagId: string) {
     const tag = await this.findTagOrThrow(tagId);
-    await this.ensureUnlockedAndManageable(user, clubContext, tag.matchId);
+    await this.ensureUnlockedAndManageable(user, tag.matchId);
     await this.prisma.actionTag.delete({ where: { id: tagId } });
   }
 
-  async lockMatch(user: AuthenticatedUser, clubContext: ClubContext, matchId: string) {
-    const match = await this.assertCanManageMatch(user, clubContext, matchId);
+  async lockMatch(user: AuthenticatedUser, matchId: string) {
+    const match = await this.assertCanManageMatch(user, matchId);
     if (match.lockedAt) {
-      // Idempotent: locking an already-locked match is a no-op, not an error — a coach
+      // Idempotent: locking an already-locked match is a no-op, not an error — a scout
       // re-clicking "Lock match" shouldn't see a failure. Also deliberately does NOT
       // re-enqueue a recompute — only a first-time lock triggers one.
       return match;
@@ -108,27 +106,23 @@ export class TagsService {
     return tag;
   }
 
-  private async ensureUnlockedAndManageable(user: AuthenticatedUser, clubContext: ClubContext, matchId: string) {
-    const match = await this.assertCanManageMatch(user, clubContext, matchId);
+  private async ensureUnlockedAndManageable(user: AuthenticatedUser, matchId: string) {
+    const match = await this.assertCanManageMatch(user, matchId);
     if (match.lockedAt) {
       throw new BadRequestException("This match is locked — tags can no longer be changed.");
     }
     return match;
   }
 
-  private async assertCanManageMatch(user: AuthenticatedUser, clubContext: ClubContext, matchId: string) {
-    const match = await this.prisma.match.findUnique({
-      where: { id: matchId },
-      include: { homeTeam: { select: { clubId: true } }, awayTeam: { select: { clubId: true } } },
-    });
+  // Tagging (and locking) is Scout-or-Admin only, globally — not club-scoped like most other
+  // write paths in this app. See Role enum's SCOUT comment for why.
+  private async assertCanManageMatch(user: AuthenticatedUser, matchId: string) {
+    const match = await this.prisma.match.findUnique({ where: { id: matchId } });
     if (!match) {
       throw new NotFoundException("Match not found.");
     }
-    if (user.isSuperadmin) return match;
-    const clubIds = [match.homeTeam.clubId, match.awayTeam.clubId];
-    const canManage = clubIds.some((clubId) => MANAGE_ROLES.includes(clubContext.roleByClubId[clubId]));
-    if (!canManage) {
-      throw new ForbiddenException("You must be a club admin or coach of the home or away team's club.");
+    if (!user.isSuperadmin && !user.isScout) {
+      throw new ForbiddenException("Only a Scout or Admin can manage this match's tags.");
     }
     return match;
   }

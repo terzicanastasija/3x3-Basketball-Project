@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { createTournamentSchema, CreateTournamentDto, Role, TournamentFormat } from "@3x3/shared";
+import { createTournamentSchema, CreateTournamentDto, TournamentFormat } from "@3x3/shared";
 import { useCreateTournament, useTournaments } from "../api";
 import { useCurrentUser } from "../../auth/api";
 import { ApiError } from "../../../lib/api-client";
@@ -14,8 +14,9 @@ export function TournamentsListPage() {
   const { data: tournaments, isLoading } = useTournaments();
   const createTournament = useCreateTournament();
 
-  const canCreate =
-    currentUser?.isSuperadmin || currentUser?.memberships.some((m) => m.role === Role.CLUB_ADMIN);
+  // UI-level gating only — the real authority is the server, which requires an Admin
+  // (superadmin) for tournament management, per the RBAC overhaul (see PROGRESS.md).
+  const canCreate = currentUser?.isSuperadmin;
 
   const {
     register,

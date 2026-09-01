@@ -1,5 +1,4 @@
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
-import { Role } from "@3x3/shared";
 import { RostersService } from "./rosters.service";
 import { ClubContext } from "../../common/types/authenticated-request";
 
@@ -11,10 +10,8 @@ function makePrismaMock() {
   };
 }
 
-const coachContext: ClubContext = {
-  accessibleClubIds: ["club-1"],
-  roleByClubId: { "club-1": Role.COACH },
-};
+const superadminContext: ClubContext = { accessibleClubIds: "ALL", roleByClubId: {} };
+const coachContext: ClubContext = { accessibleClubIds: ["club-1"], roleByClubId: { "club-1": "COACH" as never } };
 
 describe("RostersService.createOrGet", () => {
   it("returns the existing roster without creating a new one when it already exists", async () => {
@@ -24,7 +21,7 @@ describe("RostersService.createOrGet", () => {
     prisma.roster.findUnique.mockResolvedValue(existing);
     const service = new RostersService(prisma as never);
 
-    const result = await service.createOrGet("team-1", "tourn-1", coachContext);
+    const result = await service.createOrGet("team-1", "tourn-1", superadminContext);
 
     expect(result).toBe(existing);
     expect(prisma.roster.create).not.toHaveBeenCalled();
@@ -38,7 +35,7 @@ describe("RostersService.createOrGet", () => {
     prisma.roster.create.mockResolvedValue(created);
     const service = new RostersService(prisma as never);
 
-    const result = await service.createOrGet("team-1", "tourn-1", coachContext);
+    const result = await service.createOrGet("team-1", "tourn-1", superadminContext);
 
     expect(result).toBe(created);
     expect(prisma.roster.create).toHaveBeenCalledWith({
@@ -47,13 +44,12 @@ describe("RostersService.createOrGet", () => {
     });
   });
 
-  it("rejects a caller who is not CLUB_ADMIN/COACH of the team's club", async () => {
+  it("rejects a Coach — roster management is Admin-only now, not club-scoped CLUB_ADMIN/COACH", async () => {
     const prisma = makePrismaMock();
     prisma.team.findUnique.mockResolvedValue({ clubId: "club-1" });
     const service = new RostersService(prisma as never);
-    const outsiderContext: ClubContext = { accessibleClubIds: ["club-2"], roleByClubId: {} };
 
-    await expect(service.createOrGet("team-1", "tourn-1", outsiderContext)).rejects.toBeInstanceOf(
+    await expect(service.createOrGet("team-1", "tourn-1", coachContext)).rejects.toBeInstanceOf(
       ForbiddenException
     );
   });
@@ -63,8 +59,27 @@ describe("RostersService.createOrGet", () => {
     prisma.team.findUnique.mockResolvedValue(null);
     const service = new RostersService(prisma as never);
 
-    await expect(service.createOrGet("missing-team", "tourn-1", coachContext)).rejects.toBeInstanceOf(
+    await expect(service.createOrGet("missing-team", "tourn-1", superadminContext)).rejects.toBeInstanceOf(
       NotFoundException
     );
+  });
+});
+
+describe("RostersService.find (read)", () => {
+  it("allows a Coach to view a roster in their own club — reads stay open, unlike writes", async () => {
+    const prisma = makePrismaMock();
+    prisma.team.findUnique.mockResolvedValue({ clubId: "club-1" });
+    prisma.roster.findUnique.mockResolvedValue({ id: "roster-1", players: [] });
+    const service = new RostersService(prisma as never);
+
+    await expect(service.find("team-1", "tourn-1", coachContext)).resolves.toBeDefined();
+  });
+
+  it("rejects viewing a roster for a club the caller has no access to", async () => {
+    const prisma = makePrismaMock();
+    prisma.team.findUnique.mockResolvedValue({ clubId: "club-2" });
+    const service = new RostersService(prisma as never);
+
+    await expect(service.find("team-1", "tourn-1", coachContext)).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

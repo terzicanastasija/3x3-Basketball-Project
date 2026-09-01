@@ -5,6 +5,7 @@
     "clubs": "Klubovi",
     "players": "Igrači",
     "tournaments": "Turniri",
+    "tagMatch": "Označi utakmicu",
     "compilations": "Kompilacije"
   },
   "auth": {
@@ -162,6 +163,14 @@
   },
   "tagging": {
     "title": "Označavanje utakmice",
+    "select": {
+      "title": "Označi utakmicu",
+      "tournament": "Turnir",
+      "selectTournament": "Izaberi turnir",
+      "match": "Utakmica",
+      "selectMatch": "Izaberi utakmicu",
+      "noMatches": "Za ovaj turnir još nisu zakazane utakmice."
+    },
     "locked": "Zaključano",
     "team": "Ekipa",
     "player": "Igrač",
@@ -192,7 +201,8 @@
       "uploadError": "Otpremanje nije uspelo.",
       "youtubeUrl": "YouTube link",
       "registerYoutube": "Dodaj YouTube link",
-      "changeVideo": "Promeni video"
+      "changeVideo": "Promeni video",
+      "noneYet": "Za ovu utakmicu još nije registrovan video."
     },
     "actionType": {
       "SHOT_2PT_MADE": "Ubačena dvojka",

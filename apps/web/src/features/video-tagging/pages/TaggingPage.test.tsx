@@ -50,11 +50,38 @@ function renderTaggingPage() {
   );
 }
 
-function mockCommonFetch(video: Record<string, unknown>, createdTags: Record<string, unknown>[]) {
+const scoutCurrentUser = {
+  id: "user-1",
+  email: "scout@test.local",
+  firstName: "Nikola",
+  lastName: "Scout",
+  isSuperadmin: false,
+  isScout: true,
+  locale: "en",
+  memberships: [],
+};
+
+const coachCurrentUser = {
+  id: "user-2",
+  email: "coach@test.local",
+  firstName: "Some",
+  lastName: "Coach",
+  isSuperadmin: false,
+  isScout: false,
+  locale: "en",
+  memberships: [],
+};
+
+function mockCommonFetch(
+  video: Record<string, unknown>,
+  createdTags: Record<string, unknown>[],
+  currentUser: Record<string, unknown> = scoutCurrentUser
+) {
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
     const method = init?.method ?? "GET";
 
+    if (url.endsWith("/users/me") && method === "GET") return jsonResponse(currentUser);
     if (url.endsWith("/matches/match-1") && method === "GET") return jsonResponse(match);
     if (url.endsWith("/teams/team-home") && method === "GET")
       return jsonResponse({ id: "team-home", clubId: "club-1", name: "Home Team", jerseyColor: null });
@@ -230,5 +257,53 @@ describe("TaggingPage — compilation builder", () => {
 
     await waitFor(() => expect(screen.getByText("compilation page")).toBeTruthy());
     expect(compilationRequestBody).toEqual({ title: "Best steals", actionTagIds: ["tag-1"] });
+  });
+});
+
+describe("TaggingPage — RBAC (Scout/Admin can tag, Coach is read-only)", () => {
+  beforeEach(() => {
+    authStorage.setTokens("test-access-token", "test-refresh-token");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("hides the video registration panel, action grid, and lock button for a Coach", async () => {
+    const createdTags: Record<string, unknown>[] = [
+      { id: "tag-1", matchId: "match-1", timestampSec: 5, actionType: "STEAL", teamId: "team-home", pointValue: null },
+    ];
+    mockCommonFetch(
+      { id: "video-1", sourceType: "FILE", fileKey: "matches/match-1/x.mp4" },
+      createdTags,
+      coachCurrentUser
+    );
+    renderTaggingPage();
+
+    // The read-only view a Coach gets: the tag list is visible (with the clip badge)...
+    await screen.findByText(/steal|kradja/i);
+    // ...but no action-type buttons, no lock button, and no edit/delete controls exist at all.
+    expect(screen.queryByRole("button", { name: /assist|asistencija/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /lock match|zaključaj utakmicu/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^edit$|^izmeni$/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^delete$|^obriši$/i })).toBeNull();
+  });
+
+  it("shows a 'no video yet' message instead of the registration panel for a Coach when no video is registered", async () => {
+    mockCommonFetch({ id: "video-1", sourceType: "FILE", fileKey: "x.mp4" }, [], coachCurrentUser);
+    // Override so no video is registered yet for this match.
+    const base = globalThis.fetch as unknown as (
+      input: RequestInfo | URL,
+      init?: RequestInit
+    ) => Promise<Response>;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/matches/match-1/videos") && (init?.method ?? "GET") === "GET") return jsonResponse([]);
+      return base(input, init);
+    });
+    renderTaggingPage();
+
+    await screen.findByText(/no video registered|nije registrovan video/i);
+    expect(screen.queryByLabelText(/youtube/i)).toBeNull();
   });
 });
