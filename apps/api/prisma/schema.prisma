@@ -35,6 +35,19 @@ enum MatchEndType {
   SUDDEN_DEATH
 }
 
+// Nullable on Match — not every match belongs to a bracket (a simple friendly or regular-season
+// league game may have no phase at all). Covers a standard single-elimination bracket on top of
+// a group stage, which is the common shape across most amateur/pro basketball tournament formats,
+// 3x3 included.
+enum MatchPhase {
+  GROUP_STAGE
+  ROUND_OF_16
+  QUARTERFINAL
+  SEMIFINAL
+  THIRD_PLACE
+  FINAL
+}
+
 enum VideoSourceType {
   FILE
   EXTERNAL
@@ -276,6 +289,7 @@ model Match {
   tournamentId  String
   homeTeamId    String
   awayTeamId    String
+  phase         MatchPhase?
   scheduledAt   DateTime?
   status        MatchStatus   @default(SCHEDULED)
   endType       MatchEndType?

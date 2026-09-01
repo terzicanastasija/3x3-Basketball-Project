@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
-import { createMatchSchema, CreateMatchDto } from "@3x3/shared";
+import { createMatchSchema, CreateMatchDto, MatchPhase } from "@3x3/shared";
 import { useTournament } from "../api";
 import { useCreateMatch, useMatchesForTournament } from "../../matches/api";
 import { useClubs } from "../../clubs/api";
@@ -23,6 +23,23 @@ function TeamRosterLink({ teamId, tournamentId }: { teamId: string; tournamentId
     <li>
       <Link to={`/clubs/${team.clubId}/teams/${team.id}?tournamentId=${tournamentId}`}>
         {team.name} — {t("tournaments.detail.manageRoster")}
+      </Link>
+    </li>
+  );
+}
+
+// Same "resolve names via the existing per-team lookup" approach as TeamRosterLink above — a
+// match only stores homeTeamId/awayTeamId, not either team's display name.
+function MatchListItem({ match }: { match: { id: string; homeTeamId: string; awayTeamId: string; phase: string | null; status: string; homeScore: number | null; awayScore: number | null } }) {
+  const { t } = useTranslation();
+  const { data: homeTeam } = useTeam(match.homeTeamId);
+  const { data: awayTeam } = useTeam(match.awayTeamId);
+  return (
+    <li>
+      <Link to={`/matches/${match.id}`}>
+        {match.phase && `${t(`matchPhase.${match.phase}`)} — `}
+        {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}
+        {match.status === "PLAYED" ? ` — ${match.homeScore} : ${match.awayScore}` : ` — ${match.status}`}
       </Link>
     </li>
   );
@@ -85,15 +102,7 @@ export function TournamentDetailPage() {
       <h2>{t("tournaments.detail.matches")}</h2>
       <ul>
         {matches?.map((match) => (
-          <li key={match.id}>
-            <Link to={`/matches/${match.id}`}>
-              {match.status === "PLAYED"
-                ? `${match.homeScore} : ${match.awayScore}`
-                : t("tournaments.detail.scheduled")}
-              {" — "}
-              {match.status}
-            </Link>
-          </li>
+          <MatchListItem key={match.id} match={match} />
         ))}
         {matches?.length === 0 && <li>{t("tournaments.detail.noMatches")}</li>}
       </ul>
@@ -171,6 +180,17 @@ export function TournamentDetailPage() {
                 </label>
               </div>
             </div>
+            <label style={{ display: "block", marginTop: 8 }}>
+              {t("tournaments.detail.phase")}
+              <select {...register("phase")} style={{ display: "block" }}>
+                <option value="">{t("tournaments.detail.noPhase")}</option>
+                {Object.values(MatchPhase).map((phase) => (
+                  <option key={phase} value={phase}>
+                    {t(`matchPhase.${phase}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
             {(errors.homeTeamId || errors.awayTeamId) && (
               <p style={{ color: "red" }}>{t("tournaments.detail.matchTeamError")}</p>
             )}

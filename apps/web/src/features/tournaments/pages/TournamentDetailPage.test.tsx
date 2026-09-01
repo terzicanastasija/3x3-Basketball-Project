@@ -122,7 +122,7 @@ describe("TournamentDetailPage — schedule a match", () => {
     await userEvent.click(screen.getByRole("button", { name: /schedule match|zakaži utakmicu/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/scheduled — SCHEDULED|zakazano — SCHEDULED/i)).toBeTruthy();
+      expect(screen.getByText(/Home Team.*vs.*Away Team.*SCHEDULED/i)).toBeTruthy();
     });
 
     // The roster-builder deep links resolve each participating team via useTeam.

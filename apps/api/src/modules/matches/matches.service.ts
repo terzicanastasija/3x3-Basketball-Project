@@ -39,6 +39,7 @@ export class MatchesService {
         tournamentId,
         homeTeamId: dto.homeTeamId,
         awayTeamId: dto.awayTeamId,
+        phase: dto.phase,
         scheduledAt: dto.scheduledAt,
         createdById: user.id,
       },

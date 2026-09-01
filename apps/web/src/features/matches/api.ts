@@ -7,6 +7,7 @@ export interface Match {
   tournamentId: string;
   homeTeamId: string;
   awayTeamId: string;
+  phase: string | null;
   scheduledAt: string | null;
   status: string;
   endType: string | null;

@@ -1,5 +1,13 @@
 {
   "appName": "3x3 Coach",
+  "matchPhase": {
+    "GROUP_STAGE": "Group Stage",
+    "ROUND_OF_16": "Round of 16",
+    "QUARTERFINAL": "Quarterfinal",
+    "SEMIFINAL": "Semifinal",
+    "THIRD_PLACE": "3rd Place Game",
+    "FINAL": "Final"
+  },
   "nav": {
     "home": "Home",
     "clubs": "Clubs",
@@ -134,6 +142,8 @@
       "selectClub": "Select a club",
       "selectTeam": "Select a team",
       "matchTeamError": "Select a home team and a different away team.",
+      "phase": "Phase",
+      "noPhase": "No phase",
       "createMatchSubmit": "Schedule match",
       "createMatchError": "Failed to schedule match."
     }

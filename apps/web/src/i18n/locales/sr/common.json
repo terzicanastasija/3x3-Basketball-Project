@@ -1,5 +1,13 @@
 {
   "appName": "3x3 Trener",
+  "matchPhase": {
+    "GROUP_STAGE": "Grupna faza",
+    "ROUND_OF_16": "Osmina finala",
+    "QUARTERFINAL": "Četvrtfinale",
+    "SEMIFINAL": "Polufinale",
+    "THIRD_PLACE": "Utakmica za 3. mesto",
+    "FINAL": "Finale"
+  },
   "nav": {
     "home": "Početna",
     "clubs": "Klubovi",
@@ -134,6 +142,8 @@
       "selectClub": "Izaberi klub",
       "selectTeam": "Izaberi ekipu",
       "matchTeamError": "Izaberi domaću ekipu i drugačiju gostujuću ekipu.",
+      "phase": "Faza",
+      "noPhase": "Bez faze",
       "createMatchSubmit": "Zakaži utakmicu",
       "createMatchError": "Zakazivanje utakmice nije uspelo."
     }

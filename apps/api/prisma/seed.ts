@@ -1,4 +1,4 @@
-import { Handedness, MatchStatus, PrismaClient, Role, TournamentFormat } from "@prisma/client";
+import { Handedness, MatchPhase, MatchStatus, PrismaClient, Role, TournamentFormat } from "@prisma/client";
 import * as argon2 from "argon2";
 
 const prisma = new PrismaClient();
@@ -132,12 +132,12 @@ const TOURNAMENT_ID = "tournament-regionalni-kup-2026";
 // pre-fakes. Full round-robin across all 4 clubs' senior teams (6 matchups), spread over a few
 // scheduled dates like a real group stage.
 const MATCHES = [
-  { id: "match-dunav-vs-sava", homeTeamId: "team-dunav-seniori", awayTeamId: "team-sava-seniori", scheduledAt: "2026-05-16T10:00:00Z" },
-  { id: "match-morava-vs-drina", homeTeamId: "team-morava-seniori", awayTeamId: "team-drina-seniori", scheduledAt: "2026-05-16T11:00:00Z" },
-  { id: "match-dunav-vs-morava", homeTeamId: "team-dunav-seniori", awayTeamId: "team-morava-seniori", scheduledAt: "2026-05-16T14:00:00Z" },
-  { id: "match-sava-vs-drina", homeTeamId: "team-sava-seniori", awayTeamId: "team-drina-seniori", scheduledAt: "2026-05-16T15:00:00Z" },
-  { id: "match-dunav-vs-drina", homeTeamId: "team-dunav-seniori", awayTeamId: "team-drina-seniori", scheduledAt: "2026-05-17T10:00:00Z" },
-  { id: "match-sava-vs-morava", homeTeamId: "team-sava-seniori", awayTeamId: "team-morava-seniori", scheduledAt: "2026-05-17T11:00:00Z" },
+  { id: "match-dunav-vs-sava", homeTeamId: "team-dunav-seniori", awayTeamId: "team-sava-seniori", phase: MatchPhase.GROUP_STAGE, scheduledAt: "2026-05-16T10:00:00Z" },
+  { id: "match-morava-vs-drina", homeTeamId: "team-morava-seniori", awayTeamId: "team-drina-seniori", phase: MatchPhase.GROUP_STAGE, scheduledAt: "2026-05-16T11:00:00Z" },
+  { id: "match-dunav-vs-morava", homeTeamId: "team-dunav-seniori", awayTeamId: "team-morava-seniori", phase: MatchPhase.GROUP_STAGE, scheduledAt: "2026-05-16T14:00:00Z" },
+  { id: "match-sava-vs-drina", homeTeamId: "team-sava-seniori", awayTeamId: "team-drina-seniori", phase: MatchPhase.GROUP_STAGE, scheduledAt: "2026-05-16T15:00:00Z" },
+  { id: "match-dunav-vs-drina", homeTeamId: "team-dunav-seniori", awayTeamId: "team-drina-seniori", phase: MatchPhase.GROUP_STAGE, scheduledAt: "2026-05-17T10:00:00Z" },
+  { id: "match-sava-vs-morava", homeTeamId: "team-sava-seniori", awayTeamId: "team-morava-seniori", phase: MatchPhase.GROUP_STAGE, scheduledAt: "2026-05-17T11:00:00Z" },
 ];
 
 async function main() {
@@ -294,12 +294,13 @@ async function main() {
   for (const matchSeed of MATCHES) {
     await prisma.match.upsert({
       where: { id: matchSeed.id },
-      update: { scheduledAt: new Date(matchSeed.scheduledAt) },
+      update: { phase: matchSeed.phase, scheduledAt: new Date(matchSeed.scheduledAt) },
       create: {
         id: matchSeed.id,
         tournamentId: tournament.id,
         homeTeamId: matchSeed.homeTeamId,
         awayTeamId: matchSeed.awayTeamId,
+        phase: matchSeed.phase,
         scheduledAt: new Date(matchSeed.scheduledAt),
         status: MatchStatus.SCHEDULED,
         createdById: superadmin.id,

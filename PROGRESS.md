@@ -1,3 +1,80 @@
+## Post-MVP: match phase field + real YouTube demo videos + generated demo stats (2026-09-01, later still)
+
+Three asks in one go: (1) matches were displaying as an uninformative "Scheduled — SCHEDULED" in
+every list, and the user wanted "meaningful names... like club name vs club name or the phase of
+the match" — chose (per the user, asked first) to add a *real* `phase` field, not just fix the
+display text; (2) connect to YouTube and attach real tournament videos to the seeded matches;
+(3) generate random tags so every player has real stats, meaningful for exercising the Player
+Edit page. Asked 4 clarifying questions first (phase-as-schema-change vs. display-only, how many
+matches get real video, lock-after-tagging or not, and whether "every field in detail" meant more
+scope right now) — all answered with the recommended option.
+
+**Match phase** (`Match.phase`, nullable `MatchPhase` enum: `GROUP_STAGE`/`ROUND_OF_16`/
+`QUARTERFINAL`/`SEMIFINAL`/`THIRD_PLACE`/`FINAL`, migration `20260901133634_add_match_phase`) —
+nullable because not every match belongs to a bracket (a friendly or plain league game may have
+none). Threaded through `createMatchSchema`/`updateMatchSchema`, `MatchesService.create`, and
+every match-display spot in the frontend (`TournamentDetailPage`'s match list — now resolves and
+shows real team names too, via a new `MatchListItem` component, instead of the old status-only
+text; `MatchDetailPage`; `TaggingPage`'s header; `SelectMatchToTagPage`'s dropdown, which also
+gained real team names via a new batched `useTeams()` hook in `teams/api.ts` since a `<select>`
+`<option>` can't host its own per-row data-fetching component the way a list item can). All 6
+seeded matches are tagged `GROUP_STAGE` (accurate — they're the round-robin group stage).
+
+**A real bug this surfaced, caught by a failing test, not by inspection**: the "no phase chosen"
+state of a plain `<select>` is an empty string, not an absent field, and `z.nativeEnum(...)
+.optional()` rejects `""` as an invalid enum value rather than treating it as "not set" — silently
+broke the entire "schedule a match" form (every submission failed validation on the `phase` field,
+which had no error message wired up, so it looked like the button just did nothing). Fixed with a
+`z.preprocess((val) => (val === "" ? undefined : val), ...)` wrapper in `match.dto.ts`.
+
+**A second, purely self-inflicted bug while chasing the first one**: after fixing the schema above,
+the same test kept failing with the identical symptom. Root cause: `packages/shared` is a
+separately-built package (`dist/`) that both `apps/api` and `apps/web` import — editing its
+`src/` doesn't change what either app actually sees at runtime until `pnpm --filter @3x3/shared
+build` re-runs. Had edited the schema fix without rebuilding shared first, so the frontend was
+still validating against the stale pre-fix compiled DTO. Worth remembering for next time: **any
+edit under `packages/shared/src` needs an explicit rebuild before it's visible to either app** —
+neither app's dev-server watcher rebuilds it automatically.
+
+**Also recurred twice more this session**: the same orphaned-dev-server-process pattern from
+earlier — `TaskStop`/a "killed" background task not actually killing the underlying `node.exe`,
+leaving it holding port 3000 (and once, the Prisma client `.dll`, causing `prisma generate` to
+fail with `EPERM`). Both times: checked `netstat -ano` for the PID actually `LISTENING` on the
+port, `taskkill //PID <pid> //F` it directly (not trusting the harness's stop alone), confirmed
+the port was free, then restarted cleanly. This is now a known, recurring quirk of this session's
+process-management, not a one-off — worth checking `netstat` first whenever a restart "doesn't
+seem to have worked."
+
+**Real YouTube videos**: searched the web (not guessed — `WebSearch`, not a fabricated video ID)
+for the official FIBA 3x3 YouTube channel (`@FIBA3x3`) and found 5 real full-game broadcasts from
+FIBA 3x3 World Cup/Asia Cup 2026 official coverage, registered as `EXTERNAL` video sources on 5 of
+the 6 seeded matches — no downloading, just linking, exactly what the app's own "Add YouTube link"
+feature already does. `match-dunav-vs-sava` was deliberately left untouched (already has the
+user's own real FILE upload + 2 real tags from their own testing — the new tooling never touches
+a match that already has any tag or is locked).
+
+**Demo activity generator** (`apps/api/scripts/populate-demo-activity.ts`, `pnpm --filter api
+seed:demo-activity`) — a new, kept (not throwaway) script, since populating realistic demo
+activity is likely to come up again. Deliberately drives the **real running API** as a real Scout
+login, not direct Prisma writes — so RBAC, server-derived `pointValue`, and the stat-recompute
+queue all run exactly as they would for an actual user. Generates ~24 weighted-random tagged
+actions per match (shots weighted realistically more common than blocks/fouls; `ASSIST`'s related
+player is a teammate, `STEAL`/`BLOCK`'s is an opponent — matching `ACTION_TYPES_WITH_RELATED_
+PLAYER`'s existing convention exactly) across real roster players, then locks each match. Safe to
+re-run anytime: any match with an existing tag or lock is skipped outright.
+
+**Verified live, not just via the script's own success output**: queried the DB directly
+afterward — 122 total tags, 102 `StatSnapshot` rows, all 20 seeded players now have real CAREER
+points/games-played (e.g. Aleksandar Jovanović: 5 pts across 3 games). In a real browser: the
+tournament's match list now reads "Group Stage — Dunav Seniori vs Sava Seniori — SCHEDULED" for
+all 6 matches (not "Scheduled — SCHEDULED"); a player's dashboard shows real per-match history
+rows each with a working "Tags & clips" link; clicking through to `match-dunav-vs-drina`'s tagging
+screen shows 24 real tags with real player names and a working related-player display for `STEAL`
+("Nikola Todorovic (Ognjen Ristic)"), all with "Deep link"s to the real YouTube video.
+`match-dunav-vs-sava` confirmed still exactly as the user left it (2 tags, 1 FILE video, locked).
+
+---
+
 ## Retried the real-playback hotkey verification (2026-09-01) — same environment limitation, now root-caused further
 
 Picked up where the 2026-08-31 session left off: the one open gap was a literal `[`/`]`-during-

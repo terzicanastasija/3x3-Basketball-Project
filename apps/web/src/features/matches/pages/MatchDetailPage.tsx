@@ -68,6 +68,7 @@ export function MatchDetailPage() {
   return (
     <div style={{ maxWidth: 480, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <NavBar />
+      {match.phase && <p>{t(`matchPhase.${match.phase}`)}</p>}
       <h1>
         {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}
       </h1>

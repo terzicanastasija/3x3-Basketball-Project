@@ -231,7 +231,8 @@ export function TaggingPage() {
     <div style={{ maxWidth: 960, margin: "2rem auto", fontFamily: "sans-serif" }}>
       <NavBar />
       <h1>
-        {t("tagging.title")}: {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}
+        {t("tagging.title")}: {match.phase && `${t(`matchPhase.${match.phase}`)} — `}
+        {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}
       </h1>
 
       {isLocked && <p style={{ color: "green", fontWeight: "bold" }}>{t("tagging.locked")}</p>}

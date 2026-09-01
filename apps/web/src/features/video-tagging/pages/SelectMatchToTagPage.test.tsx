@@ -62,6 +62,7 @@ describe("SelectMatchToTagPage", () => {
             tournamentId: "tourn-1",
             homeTeamId: "team-home",
             awayTeamId: "team-away",
+            phase: "SEMIFINAL",
             scheduledAt: null,
             status: "SCHEDULED",
             endType: null,
@@ -71,6 +72,12 @@ describe("SelectMatchToTagPage", () => {
             awayTeamFouls: 0,
           },
         ]);
+      }
+      if (url.endsWith("/teams/team-home")) {
+        return jsonResponse({ id: "team-home", clubId: "club-1", name: "Home Team", jerseyColor: null });
+      }
+      if (url.endsWith("/teams/team-away")) {
+        return jsonResponse({ id: "team-away", clubId: "club-2", name: "Away Team", jerseyColor: null });
       }
       throw new Error(`Unhandled fetch in test: ${url}`);
     });
@@ -84,7 +91,7 @@ describe("SelectMatchToTagPage", () => {
     await userEvent.selectOptions(tournamentSelect, "tourn-1");
 
     const matchSelect = await screen.findByLabelText(/^match$|^utakmica$/i);
-    await screen.findByRole("option", { name: /scheduled — SCHEDULED|zakazano — SCHEDULED/i });
+    await screen.findByRole("option", { name: /Home Team.*Away Team/i });
     await userEvent.selectOptions(matchSelect, "match-1");
 
     await screen.findByText("tagging screen for match match-1");
