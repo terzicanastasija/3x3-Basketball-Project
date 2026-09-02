@@ -33,6 +33,12 @@ export class TagsService {
     if (dto.teamId !== match.homeTeamId && dto.teamId !== match.awayTeamId) {
       throw new BadRequestException("teamId must be the match's home or away team.");
     }
+    if (dto.playerId) {
+      await this.assertPlayerExists(dto.playerId);
+    }
+    if (dto.relatedPlayerId) {
+      await this.assertPlayerExists(dto.relatedPlayerId);
+    }
 
     const tag = await this.prisma.actionTag.create({
       data: {
@@ -103,6 +109,13 @@ export class TagsService {
     });
     await this.statRecomputeQueue.enqueueMatchRecompute(matchId);
     return locked;
+  }
+
+  private async assertPlayerExists(playerId: string) {
+    const player = await this.prisma.player.findUnique({ where: { id: playerId }, select: { id: true } });
+    if (!player) {
+      throw new NotFoundException("Player not found.");
+    }
   }
 
   private async findTagOrThrow(tagId: string) {

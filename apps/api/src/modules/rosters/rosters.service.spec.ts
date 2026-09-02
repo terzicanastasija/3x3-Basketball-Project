@@ -6,7 +6,7 @@ function makePrismaMock() {
   return {
     team: { findUnique: jest.fn() },
     roster: { findUnique: jest.fn(), create: jest.fn() },
-    rosterPlayer: { upsert: jest.fn(), delete: jest.fn() },
+    rosterPlayer: { upsert: jest.fn(), delete: jest.fn(), findUnique: jest.fn() },
   };
 }
 
@@ -107,5 +107,34 @@ describe("RostersService.find (read)", () => {
     const service = new RostersService(prisma as never);
 
     await expect(service.find("team-1", "tourn-1", scoutOrSuperadminContext)).resolves.toBeDefined();
+  });
+});
+
+describe("RostersService.removePlayer", () => {
+  it("rejects removing a player who isn't on the roster — a bad ID must 404, not 500", async () => {
+    const prisma = makePrismaMock();
+    prisma.team.findUnique.mockResolvedValue({ id: "team-1" });
+    prisma.roster.findUnique.mockResolvedValue({ id: "roster-1" });
+    prisma.rosterPlayer.findUnique.mockResolvedValue(null);
+    const service = new RostersService(prisma as never);
+
+    await expect(
+      service.removePlayer(superadminUser, "team-1", "tourn-1", "player-not-on-roster")
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.rosterPlayer.delete).not.toHaveBeenCalled();
+  });
+
+  it("removes a player who is actually on the roster", async () => {
+    const prisma = makePrismaMock();
+    prisma.team.findUnique.mockResolvedValue({ id: "team-1" });
+    prisma.roster.findUnique.mockResolvedValue({ id: "roster-1" });
+    prisma.rosterPlayer.findUnique.mockResolvedValue({ rosterId: "roster-1", playerId: "player-1" });
+    const service = new RostersService(prisma as never);
+
+    await service.removePlayer(superadminUser, "team-1", "tourn-1", "player-1");
+
+    expect(prisma.rosterPlayer.delete).toHaveBeenCalledWith({
+      where: { rosterId_playerId: { rosterId: "roster-1", playerId: "player-1" } },
+    });
   });
 });

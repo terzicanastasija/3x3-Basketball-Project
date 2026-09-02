@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { ActionType, VideoSourceType } from "@3x3/shared";
 import { TagsService } from "./tags.service";
 import { AuthenticatedUser } from "../../common/types/authenticated-request";
@@ -7,6 +7,7 @@ function makePrismaMock() {
   return {
     actionTag: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() },
     match: { findUnique: jest.fn(), update: jest.fn() },
+    player: { findUnique: jest.fn() },
     videoAsset: { findUnique: jest.fn() },
     clipJob: { create: jest.fn() },
   };
@@ -165,6 +166,43 @@ describe("TagsService.create", () => {
 
     expect(prisma.clipJob.create).not.toHaveBeenCalled();
     expect(clipQueue.enqueueClipGeneration).not.toHaveBeenCalled();
+  });
+
+  it("rejects a playerId that doesn't reference a real player — a bad ID must 404, not 500", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    prisma.player.findUnique.mockResolvedValue(null);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await expect(
+      service.create(scoutUser, "match-1", {
+        timestampSec: 5,
+        actionType: ActionType.SHOT_2PT_MADE,
+        teamId: "team-home",
+        playerId: "player-does-not-exist",
+      })
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.actionTag.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a relatedPlayerId that doesn't reference a real player", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    prisma.player.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(where.id === "player-1" ? { id: "player-1" } : null)
+    );
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await expect(
+      service.create(scoutUser, "match-1", {
+        timestampSec: 5,
+        actionType: ActionType.STEAL,
+        teamId: "team-home",
+        playerId: "player-1",
+        relatedPlayerId: "player-does-not-exist",
+      })
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.actionTag.create).not.toHaveBeenCalled();
   });
 
   it("never creates a ClipJob when the tag has no videoAssetId at all", async () => {

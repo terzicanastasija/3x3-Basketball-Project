@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { ConfigModule } from "@nestjs/config";
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -20,6 +20,7 @@ import { QueueModule } from "./common/queue/queue.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { ClubScopeGuard } from "./common/guards/club-scope.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
+import { PrismaExceptionFilter } from "./common/filters/prisma-exception.filter";
 import { validateEnv } from "./config/env.validation";
 
 @Module({
@@ -52,6 +53,7 @@ import { validateEnv } from "./config/env.validation";
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ClubScopeGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_FILTER, useClass: PrismaExceptionFilter },
   ],
 })
 export class AppModule {}

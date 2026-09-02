@@ -1,3 +1,46 @@
+## Post-MVP: edge-case testing pass + global Prisma exception filter (2026-09-02)
+
+User asked for a thorough edge-case test pass across the backend (full automated suites + a
+targeted matrix of RBAC/validation/locking/stats/clips edge cases against the live API — run via
+a forked background agent, report-only, no fixes without asking first). 74/74 backend + 22/22
+frontend tests passed; 40+ manually-probed edge cases (RBAC boundaries across all 4 roles, the
+Scout read-vs-write regression, phase validation, lock idempotency, point-value smuggling,
+clip-window validation, PPG filter edges, roster double-add, etc.) all behaved correctly. All test
+artifacts (3 throwaway matches, their tags) were cleaned up afterward; real data
+(`match-dunav-vs-sava`'s user tags, `match-morava-vs-drina`'s demo-generator tags) untouched.
+
+**4 real bugs found, all one root cause**: no global Prisma exception filter existed, so any write
+that references a foreign key without a pre-check leaked Prisma's raw `PrismaClientKnownRequestError`
+straight through as an opaque `500 Internal server error` instead of a clean 4xx — `TagsService
+.create()` (bad `playerId`), `CompilationsService.create()` (bad `actionTagId`), `RostersService
+.removePlayer()` (player not actually on the roster), `PlayersService.create()` (bad `homeClubId`).
+
+**Fix, per the user's explicit design call — a hybrid, not one approach exclusively**:
+- `PrismaExceptionFilter` (`common/filters/prisma-exception.filter.ts`, registered globally via
+  `APP_FILTER` in `app.module.ts`) maps `P2003` (FK violation) → 400, `P2025` (record not found) →
+  404, `P2002` (unique conflict, bonus — wasn't one of the 4 but same shape) → 409 with the
+  conflicting field named. This is the catch-all for every generic "bad ID" case not worth writing
+  out by hand — fixes `CompilationsService` and `PlayersService.create()`'s bugs with zero
+  service-level code (verified live: `POST /players` with a nonexistent `homeClubId` now returns
+  `400 {"message":"One or more referenced records do not exist."}` instead of a 500).
+- **Business-logic checks stay in the services** for the two cases with a real named concept worth
+  a specific message: `TagsService.create()` gained `assertPlayerExists()`, checking `playerId`
+  (and `relatedPlayerId` if present) before the insert → `404 "Player not found."`.
+  `RostersService.removePlayer()` now checks the `RosterPlayer` row exists before deleting →
+  `404 "Player is not on this roster."` (verified live against the real API). Deliberately did
+  **not** turn `addPlayer`'s existing upsert-on-duplicate into a rejection — re-adding a player
+  already on a roster to update their jersey number was independently verified as correct,
+  intentional behavior during the edge-case pass, not a bug; changing it would have been an
+  unrequested behavior change. Flagging this judgment call rather than silently reinterpreting the
+  "player already exists → 400/409" guidance to mean something the existing tests didn't ask for.
+
+8 new backend unit tests (2 in `tags.service.spec.ts` for the playerId/relatedPlayerId checks, 2 in
+`rosters.service.spec.ts` for removePlayer, 4 in a new `prisma-exception.filter.spec.ts` covering
+P2003/P2025/P2002/unrecognized-code fallback) — 82/82 backend tests passing, clean `nest build`,
+22/22 frontend tests unaffected (frontend wasn't touched).
+
+---
+
 ## Post-MVP: match phase field + real YouTube demo videos + generated demo stats (2026-09-01, later still)
 
 Three asks in one go: (1) matches were displaying as an uninformative "Scheduled — SCHEDULED" in

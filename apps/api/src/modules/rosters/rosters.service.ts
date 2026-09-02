@@ -57,6 +57,12 @@ export class RostersService {
     if (!roster) {
       throw new NotFoundException("No roster yet for this team and tournament.");
     }
+    const rosterPlayer = await this.prisma.rosterPlayer.findUnique({
+      where: { rosterId_playerId: { rosterId: roster.id, playerId } },
+    });
+    if (!rosterPlayer) {
+      throw new NotFoundException("Player is not on this roster.");
+    }
     await this.prisma.rosterPlayer.delete({
       where: { rosterId_playerId: { rosterId: roster.id, playerId } },
     });
