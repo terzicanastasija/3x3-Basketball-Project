@@ -1,3 +1,67 @@
+## Post-MVP: real visual design for `apps/web` — FIBA 3x3-inspired system (2026-09-02, later still)
+
+User asked for the frontend to be "really clean," pointed at fiba3x3.com as an aesthetic
+reference. `apps/web` had genuinely zero styling since Phase 0 (a deliberate, repeatedly-confirmed
+deferral, see the MVP-complete note below) — plain inline `style={{...}}` objects, no CSS file at
+all. Inspected the real site first (computed styles via the browser, not guessed): black/white
+base, a vivid red primary accent (`rgb(227,6,19)`), a gold/champagne secondary accent, a heavy
+condensed display face (`UnitedSansReg`, weight 900) for headlines, Roboto for body/UI text.
+
+**Design system** (`apps/web/src/styles/global.css`, new — imported once in `main.tsx`): CSS
+custom-property tokens (`--ink`/`--paper`/`--surface`/`--red`/`--red-dark`/`--gold`/`--green`/
+`--border`, radii, shadow), Google Fonts **Barlow Condensed** (headings/nav/buttons/badges,
+condensed + heavy, free stand-in for the real site's paid `UnitedSansReg`) paired with **Roboto**
+(body/inputs/table data — deliberately the same body face the real site uses). Base element rules
+(`body`, `h1`–`h6`, `a`, `button`, `input`/`select`/`textarea`, `label`, `table`) plus utility
+classes (`.page`/`.card`/`.list`/`.badge`/`.callout`/`.btn-primary`/`.btn-danger`/`.btn-ghost`/
+`.inline-row`+`.inline-field`/`.field-error`).
+
+**Why this took near-zero risk despite touching ~20 files**: every page followed the exact same
+plain-JSX pattern (`<div style={{maxWidth,margin,fontFamily}}><NavBar/><h1/>...`, bare `<button>`/
+`<input>`/`<table>` with no CSS framework) — confirmed by reading a representative sample
+(`LoginPage`, `ClubsListPage`, `TournamentDetailPage`, `MatchDashboardPage`, `TaggingPage`) before
+writing a single line of CSS. That meant most of the visual lift came free from element-selector
+base styles; per-file edits were mostly swapping an inline wrapper `style` for `className="page"`,
+adding `.card`/`.list`/`.btn-primary` to *existing* elements, and (for the two dashboard tables
+that had a hand-rolled `cellStyle` object on every `<th>`/`<td>`) deleting that inline override so
+the new `table`/`th`/`td` rules could actually show through — inline styles always beat a
+stylesheet rule regardless of specificity, so any left in place would have silently no-opped the
+new CSS.
+
+**`NavBar`** (full rebuild): dark bar, "3x3" wordmark (red "x", gold "COACH" wordmark), `NavLink`
+active-state pills, and — new — a user chip (initial avatar, first name, logout button) that
+absorbed `HomePage`'s old standalone logout button, since a persistent header is the right home for
+it. `LanguageSwitcher` got matching pill styling with a dark-bar-context override (it's reused both
+inside the dark nav and on the light login-card background).
+
+**A real, repeatable test-breakage pattern hit twice, root-caused, not just patched around**:
+wrapping already-tested content in a *new* element between it and its previous parent broke
+`getByText(regex)` assertions in `LoginPage.test.tsx` (an inline `color:red` selector check) and
+`MatchDetailPage.test.tsx` (splitting `"Status: SCHEDULED"` across a new `<p>`/`<span>` boundary
+inside a newly-added `.card` wrapper) — both fixed (one by updating the test to assert on the new
+`.field-error` class instead of a stale inline-style selector, one by reverting that one line to a
+single flat text node) and re-verified via full test runs after **every** file edited, not just at
+the end. `TaggingPage` (441 lines, the app's most complex/most-tested screen) got the same
+treatment deliberately conservatively — className additions to *existing* elements wherever
+possible, new wrapper elements only where the existing tests' `getByRole`/`getByText` usage made it
+provably safe (role-based queries compute accessible name from the full subtree regardless of
+nesting; only bare `getByText` regex matches on multi-part concatenated strings are the actual risk).
+
+**Verified**: 82/82 backend tests untouched by this session (no backend files changed), 22/22
+frontend tests passing after every meaningful edit batch (not just once at the end), clean
+`tsc -b && vite build`. **Also verified live in a real connected browser** (Chrome extension,
+logged in as `dunav.admin@3x3app.local`): login screen, home page, nav bar (dark bar, red active
+pill, avatar/name/logout, language pills), clubs list, a club detail page (teams list, "Invite a
+Coach" form with a role badge on pending invites), and a tournament detail page's match list all
+render exactly as designed — bold uppercase condensed headings with a red accent-square marker,
+clean white cards on a warm-neutral ground, red primary buttons, badge pills. Full click-through of
+every remaining page (tagging screen, dashboards, compilations) not yet done live — screenshots
+confirm the pattern holds structurally and the build/tests pass, but worth a visual pass next
+session, especially the Scout-only tagging screen (needs a Scout login, not the club-admin one used
+for this pass) and real video playback inside the redesigned tagging layout.
+
+---
+
 ## Post-MVP: edge-case testing pass + global Prisma exception filter (2026-09-02)
 
 User asked for a thorough edge-case test pass across the backend (full automated suites + a

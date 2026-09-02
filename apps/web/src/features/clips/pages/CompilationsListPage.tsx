@@ -8,17 +8,17 @@ export function CompilationsListPage() {
   const { data: compilations, isLoading } = useCompilations();
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{t("clips.list.title")}</h1>
       {isLoading && <p>{t("home.loading")}</p>}
-      <ul>
+      <ul className="list">
         {compilations?.map((compilation) => (
           <li key={compilation.id}>
             <Link to={`/compilations/${compilation.id}`}>{compilation.title}</Link>
           </li>
         ))}
-        {compilations?.length === 0 && <li>{t("clips.list.empty")}</li>}
+        {compilations?.length === 0 && <li className="empty">{t("clips.list.empty")}</li>}
       </ul>
     </div>
   );

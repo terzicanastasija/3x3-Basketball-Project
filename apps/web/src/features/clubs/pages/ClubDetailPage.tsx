@@ -50,25 +50,26 @@ export function ClubDetailPage() {
   if (!club) return <p>{t("clubs.notFound")}</p>;
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{club.name}</h1>
       {club.city && <p>{club.city}</p>}
 
       <h2>{t("clubs.detail.teams")}</h2>
-      <ul>
+      <ul className="list">
         {teams?.map((team) => (
           <li key={team.id}>
             <Link to={`/clubs/${clubId}/teams/${team.id}`}>{team.name}</Link>
           </li>
         ))}
-        {teams?.length === 0 && <li>{t("clubs.detail.noTeams")}</li>}
+        {teams?.length === 0 && <li className="empty">{t("clubs.detail.noTeams")}</li>}
       </ul>
 
       {canCreatePlayer && (
-        <div style={{ marginTop: 16 }}>
+        <div className="card section">
           <h3>{t("clubs.detail.createPlayer")}</h3>
           <form
+            className="inline-row"
             onSubmit={playerForm.handleSubmit((dto) =>
               createPlayer.mutate(dto, { onSuccess: () => playerForm.reset({ homeClubId: clubId }) })
             )}
@@ -76,27 +77,28 @@ export function ClubDetailPage() {
             <input
               {...playerForm.register("firstName")}
               placeholder={t("players.detail.firstName") ?? ""}
-              style={{ marginRight: 8 }}
+              className="inline-field"
             />
             <input
               {...playerForm.register("lastName")}
               placeholder={t("players.detail.lastName") ?? ""}
-              style={{ marginRight: 8 }}
+              className="inline-field"
             />
-            <button type="submit" disabled={createPlayer.isPending}>
+            <button type="submit" className="btn-primary" disabled={createPlayer.isPending}>
               {t("clubs.detail.createPlayerSubmit")}
             </button>
             {(playerForm.formState.errors.firstName || playerForm.formState.errors.lastName) && (
-              <p style={{ color: "red" }}>{t("clubs.detail.createPlayerError")}</p>
+              <span className="field-error">{t("clubs.detail.createPlayerError")}</span>
             )}
           </form>
         </div>
       )}
 
       {canManageTeams && (
-        <div style={{ marginTop: 16 }}>
+        <div className="card section">
           <h3>{t("clubs.detail.createTeam")}</h3>
           <form
+            className="inline-row"
             onSubmit={teamForm.handleSubmit((dto) =>
               createTeam.mutate(dto, { onSuccess: () => teamForm.reset() })
             )}
@@ -104,73 +106,72 @@ export function ClubDetailPage() {
             <input
               {...teamForm.register("name")}
               placeholder={t("clubs.detail.teamName") ?? ""}
-              style={{ marginRight: 8 }}
+              className="inline-field"
             />
-            <button type="submit" disabled={createTeam.isPending}>
+            <button type="submit" className="btn-primary" disabled={createTeam.isPending}>
               {t("clubs.detail.createTeamSubmit")}
             </button>
             {teamForm.formState.errors.name && (
-              <p style={{ color: "red" }}>{teamForm.formState.errors.name.message}</p>
+              <span className="field-error">{teamForm.formState.errors.name.message}</span>
             )}
           </form>
         </div>
       )}
 
       {isClubAdmin && (
-        <>
-          <div style={{ marginTop: 24 }}>
-            <h2>{t("clubs.detail.invite")}</h2>
-            <form
-              onSubmit={inviteForm.handleSubmit((dto) =>
-                createInvite.mutate(dto, {
-                  onSuccess: () => {
-                    inviteForm.reset();
-                    setInviteSent(true);
-                  },
-                })
-              )}
-            >
-              <input
-                type="email"
-                {...inviteForm.register("email")}
-                placeholder={t("clubs.detail.inviteEmail") ?? ""}
-                style={{ marginRight: 8 }}
-              />
-              <select {...inviteForm.register("role")} defaultValue={Role.COACH} style={{ marginRight: 8 }}>
-                <option value={Role.COACH}>{t("roles.coach")}</option>
-                <option value={Role.CLUB_ADMIN}>{t("roles.clubAdmin")}</option>
-              </select>
-              <button type="submit" disabled={createInvite.isPending}>
-                {t("clubs.detail.inviteSubmit")}
-              </button>
-              {inviteForm.formState.errors.email && (
-                <p style={{ color: "red" }}>{inviteForm.formState.errors.email.message}</p>
-              )}
-              {createInvite.isError && (
-                <p style={{ color: "red" }}>
-                  {createInvite.error instanceof ApiError
-                    ? createInvite.error.message
-                    : t("clubs.detail.inviteError")}
-                </p>
-              )}
-              {inviteSent && <p>{t("clubs.detail.inviteSentHint")}</p>}
-            </form>
+        <div className="card section">
+          <h2>{t("clubs.detail.invite")}</h2>
+          <form
+            className="inline-row"
+            onSubmit={inviteForm.handleSubmit((dto) =>
+              createInvite.mutate(dto, {
+                onSuccess: () => {
+                  inviteForm.reset();
+                  setInviteSent(true);
+                },
+              })
+            )}
+          >
+            <input
+              type="email"
+              {...inviteForm.register("email")}
+              placeholder={t("clubs.detail.inviteEmail") ?? ""}
+              className="inline-field"
+            />
+            <select {...inviteForm.register("role")} defaultValue={Role.COACH} className="inline-field">
+              <option value={Role.COACH}>{t("roles.coach")}</option>
+              <option value={Role.CLUB_ADMIN}>{t("roles.clubAdmin")}</option>
+            </select>
+            <button type="submit" className="btn-primary" disabled={createInvite.isPending}>
+              {t("clubs.detail.inviteSubmit")}
+            </button>
+            {inviteForm.formState.errors.email && (
+              <span className="field-error">{inviteForm.formState.errors.email.message}</span>
+            )}
+            {createInvite.isError && (
+              <span className="field-error">
+                {createInvite.error instanceof ApiError
+                  ? createInvite.error.message
+                  : t("clubs.detail.inviteError")}
+              </span>
+            )}
+            {inviteSent && <span className="hint">{t("clubs.detail.inviteSentHint")}</span>}
+          </form>
 
-            <h3>{t("clubs.detail.pendingInvites")}</h3>
-            <ul>
-              {invites
-                ?.filter((invite) => !invite.acceptedAt)
-                .map((invite) => (
-                  <li key={invite.id}>
-                    {invite.email} — {invite.role}
-                  </li>
-                ))}
-              {invites?.filter((i) => !i.acceptedAt).length === 0 && (
-                <li>{t("clubs.detail.noPendingInvites")}</li>
-              )}
-            </ul>
-          </div>
-        </>
+          <h3 style={{ marginTop: 20 }}>{t("clubs.detail.pendingInvites")}</h3>
+          <ul className="list">
+            {invites
+              ?.filter((invite) => !invite.acceptedAt)
+              .map((invite) => (
+                <li key={invite.id} style={{ padding: "10px 16px" }}>
+                  {invite.email} — <span className="badge">{invite.role}</span>
+                </li>
+              ))}
+            {invites?.filter((i) => !i.acceptedAt).length === 0 && (
+              <li className="empty">{t("clubs.detail.noPendingInvites")}</li>
+            )}
+          </ul>
+        </div>
       )}
     </div>
   );

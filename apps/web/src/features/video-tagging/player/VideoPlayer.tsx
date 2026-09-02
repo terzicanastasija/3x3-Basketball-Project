@@ -65,7 +65,7 @@ export function VideoPlayer({ sourceType, src, onAdapterReady }: VideoPlayerProp
         src={src}
         controls
         data-testid="video-player-file"
-        style={{ width: "100%", maxWidth: 480 }}
+        style={{ width: "100%", maxWidth: 480, borderRadius: 8, background: "#000" }}
       />
     );
   }

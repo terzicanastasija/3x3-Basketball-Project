@@ -14,20 +14,22 @@ export function PlayersListPage() {
     setFilters((prev) => ({ ...prev, ...patch }));
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{t("players.title")}</h1>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <div className="card inline-row">
         <input
           placeholder={t("players.filters.clubId") ?? ""}
           value={filters.clubId ?? ""}
           onChange={(e) => updateFilter({ clubId: e.target.value || undefined })}
+          className="inline-field"
         />
         <input
           placeholder={t("players.filters.city") ?? ""}
           value={filters.city ?? ""}
           onChange={(e) => updateFilter({ city: e.target.value || undefined })}
+          className="inline-field"
         />
         <input
           type="number"
@@ -70,16 +72,16 @@ export function PlayersListPage() {
       </div>
 
       {isLoading && <p>{t("home.loading")}</p>}
-      <ul>
+      <ul className="list">
         {players?.map((player) => (
           <li key={player.id}>
             <Link to={`/players/${player.id}`}>
               {player.firstName} {player.lastName}
+              {player.homeClub && ` — ${player.homeClub.name}`}
             </Link>
-            {player.homeClub && ` — ${player.homeClub.name}`}
           </li>
         ))}
-        {players?.length === 0 && <li>{t("players.empty")}</li>}
+        {players?.length === 0 && <li className="empty">{t("players.empty")}</li>}
       </ul>
     </div>
   );

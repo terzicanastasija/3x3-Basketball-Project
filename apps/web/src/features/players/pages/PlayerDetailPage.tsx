@@ -43,59 +43,55 @@ export function PlayerDetailPage() {
   if (!player) return <p>{t("players.notFound")}</p>;
 
   return (
-    <div style={{ maxWidth: 480, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page page-narrow">
       <NavBar />
       <h1>
         {player.firstName} {player.lastName}
       </h1>
-      <ul>
-        <li>{t("players.detail.club")}: {player.homeClub?.name ?? t("players.detail.noClub")}</li>
-        <li>{t("players.detail.position")}: {player.position ?? "—"}</li>
-        <li>{t("players.detail.height")}: {player.heightCm ? `${player.heightCm} cm` : "—"}</li>
-        <li>{t("players.detail.hand")}: {player.dominantHand}</li>
-      </ul>
-      <p>
+      <div className="card">
+        <ul>
+          <li>{t("players.detail.club")}: {player.homeClub?.name ?? t("players.detail.noClub")}</li>
+          <li>{t("players.detail.position")}: {player.position ?? "—"}</li>
+          <li>{t("players.detail.height")}: {player.heightCm ? `${player.heightCm} cm` : "—"}</li>
+          <li>{t("players.detail.hand")}: {player.dominantHand}</li>
+        </ul>
         <Link to={`/players/${player.id}/dashboard`}>{t("players.detail.viewDashboard")}</Link>
-      </p>
+      </div>
 
       {canEdit && (
-        <div style={{ marginTop: 24 }}>
+        <div className="card section">
           <h2>{t("players.detail.editTitle")}</h2>
           <form onSubmit={handleSubmit((dto) => updatePlayer.mutate(dto))}>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("players.detail.firstName")}
-                <input {...register("firstName")} style={{ display: "block", width: "100%" }} />
+                <input {...register("firstName")} />
               </label>
-              {errors.firstName && <span style={{ color: "red" }}>{errors.firstName.message}</span>}
+              {errors.firstName && <span className="field-error">{errors.firstName.message}</span>}
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("players.detail.lastName")}
-                <input {...register("lastName")} style={{ display: "block", width: "100%" }} />
+                <input {...register("lastName")} />
               </label>
-              {errors.lastName && <span style={{ color: "red" }}>{errors.lastName.message}</span>}
+              {errors.lastName && <span className="field-error">{errors.lastName.message}</span>}
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("players.detail.height")}
-                <input
-                  type="number"
-                  {...register("heightCm")}
-                  style={{ display: "block", width: "100%" }}
-                />
+                <input type="number" {...register("heightCm")} />
               </label>
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("players.detail.position")}
-                <input {...register("position")} style={{ display: "block", width: "100%" }} />
+                <input {...register("position")} />
               </label>
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("players.detail.hand")}
-                <select {...register("dominantHand")} style={{ display: "block", width: "100%" }}>
+                <select {...register("dominantHand")}>
                   {Object.values(Handedness).map((hand) => (
                     <option key={hand} value={hand}>
                       {hand}
@@ -105,14 +101,14 @@ export function PlayerDetailPage() {
               </label>
             </div>
             {updatePlayer.isError && (
-              <p style={{ color: "red" }}>
+              <p className="field-error">
                 {updatePlayer.error instanceof ApiError
                   ? updatePlayer.error.message
                   : t("players.detail.editError")}
               </p>
             )}
-            {updatePlayer.isSuccess && <p>{t("players.detail.editSuccess")}</p>}
-            <button type="submit" disabled={updatePlayer.isPending}>
+            {updatePlayer.isSuccess && <p className="hint">{t("players.detail.editSuccess")}</p>}
+            <button type="submit" className="btn-primary" disabled={updatePlayer.isPending}>
               {t("players.detail.editSubmit")}
             </button>
           </form>

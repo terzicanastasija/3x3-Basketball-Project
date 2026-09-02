@@ -30,11 +30,11 @@ export function TournamentsListPage() {
   };
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{t("tournaments.title")}</h1>
       {isLoading && <p>{t("home.loading")}</p>}
-      <ul>
+      <ul className="list">
         {tournaments?.map((tournament) => (
           <li key={tournament.id}>
             <Link to={`/tournaments/${tournament.id}`}>
@@ -42,35 +42,31 @@ export function TournamentsListPage() {
             </Link>
           </li>
         ))}
-        {tournaments?.length === 0 && <li>{t("tournaments.empty")}</li>}
+        {tournaments?.length === 0 && <li className="empty">{t("tournaments.empty")}</li>}
       </ul>
 
       {canCreate && (
-        <div style={{ marginTop: 24 }}>
+        <div className="card section">
           <h2>{t("tournaments.create.title")}</h2>
           <form onSubmit={handleSubmit(onSubmit)}>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("tournaments.create.name")}
-                <input {...register("name")} style={{ display: "block", width: "100%" }} />
+                <input {...register("name")} />
               </label>
-              {errors.name && <span style={{ color: "red" }}>{errors.name.message}</span>}
+              {errors.name && <span className="field-error">{errors.name.message}</span>}
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("tournaments.create.startDate")}
-                <input
-                  type="date"
-                  {...register("startDate")}
-                  style={{ display: "block", width: "100%" }}
-                />
+                <input type="date" {...register("startDate")} />
               </label>
-              {errors.startDate && <span style={{ color: "red" }}>{errors.startDate.message}</span>}
+              {errors.startDate && <span className="field-error">{errors.startDate.message}</span>}
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("tournaments.create.format")}
-                <select {...register("format")} style={{ display: "block", width: "100%" }}>
+                <select {...register("format")}>
                   {Object.values(TournamentFormat).map((format) => (
                     <option key={format} value={format}>
                       {format}
@@ -80,13 +76,13 @@ export function TournamentsListPage() {
               </label>
             </div>
             {createTournament.isError && (
-              <p style={{ color: "red" }}>
+              <p className="field-error">
                 {createTournament.error instanceof ApiError
                   ? createTournament.error.message
                   : t("tournaments.create.error")}
               </p>
             )}
-            <button type="submit" disabled={createTournament.isPending}>
+            <button type="submit" className="btn-primary" disabled={createTournament.isPending}>
               {t("tournaments.create.submit")}
             </button>
           </form>

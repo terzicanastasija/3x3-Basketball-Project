@@ -11,7 +11,7 @@ export function ClipBadge({ tagId }: { tagId: string }) {
 
   if (clip.type === "DEEP_LINK") {
     return (
-      <a href={clip.url} target="_blank" rel="noreferrer" style={{ marginLeft: 8 }}>
+      <a href={clip.url} target="_blank" rel="noreferrer">
         {t("clips.deepLink")}
       </a>
     );
@@ -19,7 +19,7 @@ export function ClipBadge({ tagId }: { tagId: string }) {
 
   if (clip.status === "COMPLETED" && clip.url) {
     return (
-      <a href={clip.url} target="_blank" rel="noreferrer" style={{ marginLeft: 8 }}>
+      <a href={clip.url} target="_blank" rel="noreferrer">
         {t("clips.playClip")}
       </a>
     );
@@ -27,11 +27,11 @@ export function ClipBadge({ tagId }: { tagId: string }) {
 
   if (clip.status === "FAILED") {
     return (
-      <span style={{ marginLeft: 8, color: "red" }} title={clip.errorMessage ?? undefined}>
+      <span className="badge badge-red" title={clip.errorMessage ?? undefined}>
         {t("clips.failed")}
       </span>
     );
   }
 
-  return <span style={{ marginLeft: 8, color: "#888" }}>{t("clips.processing")}</span>;
+  return <span className="badge">{t("clips.processing")}</span>;
 }

@@ -13,12 +13,12 @@ export function CompilationDetailPage() {
   if (!compilation) return <p>{t("clips.detail.notFound")}</p>;
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{compilation.title}</h1>
-      <ol>
+      <ol className="card" style={{ paddingLeft: 20 }}>
         {compilation.items.map((item) => (
-          <li key={item.id} style={{ marginBottom: 8 }}>
+          <li key={item.id} style={{ marginBottom: 14 }}>
             {t(ACTION_TYPE_I18N_KEY[item.actionTag.actionType as keyof typeof ACTION_TYPE_I18N_KEY])} —{" "}
             {item.actionTag.timestampSec.toFixed(1)}s{" "}
             <Link to={`/matches/${item.actionTag.matchId}/dashboard`}>{t("clips.detail.match")}</Link>{" "}
@@ -28,10 +28,14 @@ export function CompilationDetailPage() {
               </a>
             )}
             {item.clip.type === "CLIP" && item.clip.status === "COMPLETED" && item.clip.url && (
-              <video src={item.clip.url} controls style={{ display: "block", maxWidth: 320, marginTop: 4 }} />
+              <video
+                src={item.clip.url}
+                controls
+                style={{ display: "block", maxWidth: 320, marginTop: 8, borderRadius: 6 }}
+              />
             )}
             {item.clip.type === "CLIP" && item.clip.status !== "COMPLETED" && (
-              <span style={{ color: item.clip.status === "FAILED" ? "red" : "#888" }}>
+              <span className={item.clip.status === "FAILED" ? "badge badge-red" : "badge"}>
                 {item.clip.status === "FAILED" ? t("clips.failed") : t("clips.processing")}
               </span>
             )}

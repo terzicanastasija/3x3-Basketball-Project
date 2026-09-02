@@ -45,12 +45,17 @@ export function TeamDetailPage() {
   if (!team) return <p>{t("teams.notFound")}</p>;
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{team.name}</h1>
 
       <h2>{t("teams.roster.tournamentPicker")}</h2>
-      <select value={tournamentId} onChange={(e) => setTournamentId(e.target.value)}>
+      <select
+        value={tournamentId}
+        onChange={(e) => setTournamentId(e.target.value)}
+        className="inline-field"
+        style={{ minWidth: 260 }}
+      >
         <option value="">{t("teams.roster.selectTournament")}</option>
         {tournaments?.map((tournament) => (
           <option key={tournament.id} value={tournament.id}>
@@ -60,7 +65,7 @@ export function TeamDetailPage() {
       </select>
 
       {tournamentId && (
-        <div style={{ marginTop: 16 }}>
+        <div className="card section">
           <p>
             <Link to={`/teams/${teamId}/dashboard?tournamentId=${tournamentId}`}>
               {t("teams.roster.viewDashboard")}
@@ -73,6 +78,7 @@ export function TeamDetailPage() {
             <div>
               <p>{t("teams.roster.none")}</p>
               <button
+                className="btn-primary"
                 onClick={() => createOrGetRoster.mutate(tournamentId)}
                 disabled={createOrGetRoster.isPending}
               >
@@ -86,10 +92,16 @@ export function TeamDetailPage() {
             <>
               <ul>
                 {roster.players.map((entry) => (
-                  <li key={entry.id}>
-                    {`#${entry.jerseyNumber ?? "-"} ${entry.player.firstName} ${entry.player.lastName}`}{" "}
+                  <li
+                    key={entry.id}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                  >
+                    <span>
+                      <span className="badge">#{entry.jerseyNumber ?? "-"}</span>{" "}
+                      {entry.player.firstName} {entry.player.lastName}
+                    </span>
                     {canManageRoster && (
-                      <button onClick={() => removePlayer.mutate(entry.playerId)}>
+                      <button className="btn-danger btn-small" onClick={() => removePlayer.mutate(entry.playerId)}>
                         {t("teams.roster.remove")}
                       </button>
                     )}
@@ -100,12 +112,17 @@ export function TeamDetailPage() {
 
               {canManageRoster && (
                 <>
-                  <h3>{t("teams.roster.addPlayer")}</h3>
+                  <h3 style={{ marginTop: 20 }}>{t("teams.roster.addPlayer")}</h3>
                   <ul>
                     {availablePlayers.map((player) => (
-                      <li key={player.id}>
-                        {`${player.firstName} ${player.lastName}`}{" "}
-                        <button onClick={() => addPlayer.mutate({ playerId: player.id })}>
+                      <li
+                        key={player.id}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                      >
+                        <span>
+                          {player.firstName} {player.lastName}
+                        </span>
+                        <button className="btn-small" onClick={() => addPlayer.mutate({ playerId: player.id })}>
                           {t("teams.roster.add")}
                         </button>
                       </li>

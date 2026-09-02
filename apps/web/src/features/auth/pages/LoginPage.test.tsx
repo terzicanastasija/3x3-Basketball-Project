@@ -30,7 +30,7 @@ describe("LoginPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /log in|prijavi/i }));
 
     await waitFor(() => {
-      expect(document.querySelectorAll('span[style*="color: red"]').length).toBeGreaterThan(0);
+      expect(document.querySelectorAll("span.field-error").length).toBeGreaterThan(0);
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

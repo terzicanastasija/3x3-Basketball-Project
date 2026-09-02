@@ -13,7 +13,7 @@ export function TeamDashboardPage() {
   const { data: stats, isLoading } = useTeamDashboard(teamId, tournamentId);
 
   return (
-    <div style={{ maxWidth: 480, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page page-narrow">
       <NavBar />
       <h1>
         {team?.name ?? "…"} — {t("dashboards.team.title")}
@@ -24,7 +24,7 @@ export function TeamDashboardPage() {
       {tournamentId && !isLoading && !stats && <p>{t("dashboards.team.empty")}</p>}
 
       {stats && (
-        <ul>
+        <ul className="card">
           <li>
             {t("dashboards.table.points")}: {stats.points}
           </li>

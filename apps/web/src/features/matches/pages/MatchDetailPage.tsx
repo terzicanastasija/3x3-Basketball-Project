@@ -66,78 +66,74 @@ export function MatchDetailPage() {
   const isPlayed = match.status === "PLAYED";
 
   return (
-    <div style={{ maxWidth: 480, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page page-narrow">
       <NavBar />
-      {match.phase && <p>{t(`matchPhase.${match.phase}`)}</p>}
+      {match.phase && <span className="badge">{t(`matchPhase.${match.phase}`)}</span>}
       <h1>
         {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}
       </h1>
-      <p>{t("matches.detail.status")}: {match.status}</p>
-      {match.scheduledAt && <p>{new Date(match.scheduledAt).toLocaleString()}</p>}
-      <p>
-        <Link to={`/matches/${match.id}/tag`}>
-          {match.lockedAt ? t("matches.detail.viewTags") : t("matches.detail.tagMatch")}
-        </Link>
-      </p>
-
-      {match.lockedAt && (
+      <div className="card">
         <p>
-          {recomputeStatus?.ready ? (
-            <Link to={`/matches/${match.id}/dashboard`}>{t("matches.detail.viewDashboard")}</Link>
-          ) : (
-            t("matches.detail.computingStats")
-          )}
+          {t("matches.detail.status")}: {match.status}
         </p>
-      )}
+        {match.scheduledAt && <p className="hint">{new Date(match.scheduledAt).toLocaleString()}</p>}
+        <p>
+          <Link to={`/matches/${match.id}/tag`}>
+            {match.lockedAt ? t("matches.detail.viewTags") : t("matches.detail.tagMatch")}
+          </Link>
+        </p>
 
-      {isPlayed && (
-        <div style={{ marginTop: 16 }}>
-          <h2>{t("matches.detail.result")}</h2>
+        {match.lockedAt && (
           <p>
-            {match.homeScore} : {match.awayScore} ({match.endType})
+            {recomputeStatus?.ready ? (
+              <Link to={`/matches/${match.id}/dashboard`}>{t("matches.detail.viewDashboard")}</Link>
+            ) : (
+              <span className="hint">{t("matches.detail.computingStats")}</span>
+            )}
           </p>
-          <p>
-            {t("matches.detail.fouls")}: {match.homeTeamFouls} / {match.awayTeamFouls}
-          </p>
-        </div>
-      )}
+        )}
+
+        {isPlayed && (
+          <div className="section">
+            <h2>{t("matches.detail.result")}</h2>
+            <p>
+              {match.homeScore} : {match.awayScore} ({match.endType})
+            </p>
+            <p>
+              {t("matches.detail.fouls")}: {match.homeTeamFouls} / {match.awayTeamFouls}
+            </p>
+          </div>
+        )}
+      </div>
 
       {canRecordResult && (
-        <div style={{ marginTop: 24 }}>
+        <div className="card section">
           <h2>{isPlayed ? t("matches.detail.editResult") : t("matches.detail.recordResult")}</h2>
           <form onSubmit={handleSubmit((dto) => recordResult.mutate(dto))}>
             <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
               <label>
                 {t("matches.detail.homeScore")}
-                <input type="number" {...register("homeScore")} style={{ display: "block", width: 80 }} />
+                <input type="number" {...register("homeScore")} style={{ width: 80 }} />
               </label>
               <label>
                 {t("matches.detail.awayScore")}
-                <input type="number" {...register("awayScore")} style={{ display: "block", width: 80 }} />
+                <input type="number" {...register("awayScore")} style={{ width: 80 }} />
               </label>
             </div>
             <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
               <label>
                 {t("matches.detail.homeFouls")}
-                <input
-                  type="number"
-                  {...register("homeTeamFouls")}
-                  style={{ display: "block", width: 80 }}
-                />
+                <input type="number" {...register("homeTeamFouls")} style={{ width: 80 }} />
               </label>
               <label>
                 {t("matches.detail.awayFouls")}
-                <input
-                  type="number"
-                  {...register("awayTeamFouls")}
-                  style={{ display: "block", width: 80 }}
-                />
+                <input type="number" {...register("awayTeamFouls")} style={{ width: 80 }} />
               </label>
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("matches.detail.endType")}
-                <select {...register("endType")} style={{ display: "block" }}>
+                <select {...register("endType")}>
                   {Object.values(MatchEndType).map((endType) => (
                     <option key={endType} value={endType}>
                       {endType}
@@ -147,16 +143,16 @@ export function MatchDetailPage() {
               </label>
             </div>
             {(errors.homeScore || errors.awayScore || errors.homeTeamFouls || errors.awayTeamFouls) && (
-              <p style={{ color: "red" }}>{t("matches.detail.validationError")}</p>
+              <p className="field-error">{t("matches.detail.validationError")}</p>
             )}
             {recordResult.isError && (
-              <p style={{ color: "red" }}>
+              <p className="field-error">
                 {recordResult.error instanceof ApiError
                   ? recordResult.error.message
                   : t("matches.detail.resultError")}
               </p>
             )}
-            <button type="submit" disabled={recordResult.isPending}>
+            <button type="submit" className="btn-primary" disabled={recordResult.isPending}>
               {t("matches.detail.submitResult")}
             </button>
           </form>

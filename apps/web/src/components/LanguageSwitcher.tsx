@@ -9,18 +9,15 @@ export function LanguageSwitcher() {
   const { i18n } = useTranslation();
 
   return (
-    <div style={{ display: "flex", gap: 8 }}>
+    <div className="lang-switch">
       {LANGUAGES.map(({ code, label }) => (
         <button
           key={code}
           type="button"
+          className={i18n.resolvedLanguage === code ? "lang-switch__btn lang-switch__btn--active" : "lang-switch__btn"}
           onClick={() => void i18n.changeLanguage(code)}
           disabled={i18n.resolvedLanguage === code}
           aria-current={i18n.resolvedLanguage === code}
-          style={{
-            fontWeight: i18n.resolvedLanguage === code ? 700 : 400,
-            cursor: i18n.resolvedLanguage === code ? "default" : "pointer",
-          }}
         >
           {label}
         </button>

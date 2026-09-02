@@ -37,57 +37,54 @@ export function SelectMatchToTagPage() {
   }, [teamIds, teamQueries]);
 
   return (
-    <div style={{ maxWidth: 480, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page page-narrow">
       <NavBar />
       <h1>{t("tagging.select.title")}</h1>
 
-      <div style={{ marginBottom: 12 }}>
-        <label>
-          {t("tagging.select.tournament")}
-          <select
-            value={tournamentId}
-            onChange={(e) => setTournamentId(e.target.value)}
-            style={{ display: "block", width: "100%" }}
-          >
-            <option value="">{t("tagging.select.selectTournament")}</option>
-            {tournaments?.map((tournament) => (
-              <option key={tournament.id} value={tournament.id}>
-                {tournament.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {tournamentId && (
+      <div className="card">
         <div style={{ marginBottom: 12 }}>
           <label>
-            {t("tagging.select.match")}
-            <select
-              defaultValue=""
-              onChange={(e) => e.target.value && navigate(`/matches/${e.target.value}/tag`)}
-              style={{ display: "block", width: "100%" }}
-            >
-              <option value="">{t("tagging.select.selectMatch")}</option>
-              {matches?.map((match) => {
-                const home = teamNameById.get(match.homeTeamId) ?? "…";
-                const away = teamNameById.get(match.awayTeamId) ?? "…";
-                const phase = match.phase ? `${t(`matchPhase.${match.phase}`)} — ` : "";
-                const result =
-                  match.status === "PLAYED" ? ` (${match.homeScore} : ${match.awayScore})` : ` — ${match.status}`;
-                return (
-                  <option key={match.id} value={match.id}>
-                    {phase}
-                    {home} {t("matches.detail.vs")} {away}
-                    {result}
-                  </option>
-                );
-              })}
+            {t("tagging.select.tournament")}
+            <select value={tournamentId} onChange={(e) => setTournamentId(e.target.value)}>
+              <option value="">{t("tagging.select.selectTournament")}</option>
+              {tournaments?.map((tournament) => (
+                <option key={tournament.id} value={tournament.id}>
+                  {tournament.name}
+                </option>
+              ))}
             </select>
           </label>
-          {matches?.length === 0 && <p>{t("tagging.select.noMatches")}</p>}
         </div>
-      )}
+
+        {tournamentId && (
+          <div style={{ marginBottom: 12 }}>
+            <label>
+              {t("tagging.select.match")}
+              <select
+                defaultValue=""
+                onChange={(e) => e.target.value && navigate(`/matches/${e.target.value}/tag`)}
+              >
+                <option value="">{t("tagging.select.selectMatch")}</option>
+                {matches?.map((match) => {
+                  const home = teamNameById.get(match.homeTeamId) ?? "…";
+                  const away = teamNameById.get(match.awayTeamId) ?? "…";
+                  const phase = match.phase ? `${t(`matchPhase.${match.phase}`)} — ` : "";
+                  const result =
+                    match.status === "PLAYED" ? ` (${match.homeScore} : ${match.awayScore})` : ` — ${match.status}`;
+                  return (
+                    <option key={match.id} value={match.id}>
+                      {phase}
+                      {home} {t("matches.detail.vs")} {away}
+                      {result}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            {matches?.length === 0 && <p className="hint">{t("tagging.select.noMatches")}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -44,7 +44,7 @@ export function VideoRegistrationPanel({ matchId, selectedVideoId, onSelect }: V
   }
 
   return (
-    <div>
+    <div className="card">
       <h2>{t("tagging.video.title")}</h2>
       {isLoading && <p>{t("home.loading")}</p>}
       {!isLoading && (videos?.length ?? 0) > 0 && (
@@ -67,7 +67,7 @@ export function VideoRegistrationPanel({ matchId, selectedVideoId, onSelect }: V
         </ul>
       )}
 
-      <div style={{ display: "flex", gap: 24, marginTop: 12 }}>
+      <div style={{ display: "flex", gap: 24, marginTop: 12, flexWrap: "wrap" }}>
         <div>
           <label>
             {t("tagging.video.uploadFile")}
@@ -76,11 +76,10 @@ export function VideoRegistrationPanel({ matchId, selectedVideoId, onSelect }: V
               accept="video/*"
               onChange={(e) => void handleFileChange(e.target.files?.[0] ?? null)}
               disabled={uploadState === "uploading"}
-              style={{ display: "block" }}
             />
           </label>
-          {uploadState === "uploading" && <p>{t("tagging.video.uploading")}</p>}
-          {uploadState === "error" && <p style={{ color: "red" }}>{t("tagging.video.uploadError")}</p>}
+          {uploadState === "uploading" && <p className="hint">{t("tagging.video.uploading")}</p>}
+          {uploadState === "error" && <p className="field-error">{t("tagging.video.uploadError")}</p>}
         </div>
         <div>
           <label>
@@ -90,10 +89,15 @@ export function VideoRegistrationPanel({ matchId, selectedVideoId, onSelect }: V
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=..."
-              style={{ display: "block", width: 260 }}
+              style={{ width: 260 }}
             />
           </label>
-          <button onClick={() => void handleRegisterYoutube()} disabled={registerVideo.isPending}>
+          <button
+            className="btn-primary"
+            style={{ marginTop: 8 }}
+            onClick={() => void handleRegisterYoutube()}
+            disabled={registerVideo.isPending}
+          >
             {t("tagging.video.registerYoutube")}
           </button>
         </div>

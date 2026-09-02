@@ -26,11 +26,11 @@ export function ClubsListPage() {
   };
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{t("clubs.title")}</h1>
       {isLoading && <p>{t("home.loading")}</p>}
-      <ul>
+      <ul className="list">
         {clubs?.map((club) => (
           <li key={club.id}>
             <Link to={`/clubs/${club.id}`}>
@@ -39,32 +39,32 @@ export function ClubsListPage() {
             </Link>
           </li>
         ))}
-        {clubs?.length === 0 && <li>{t("clubs.empty")}</li>}
+        {clubs?.length === 0 && <li className="empty">{t("clubs.empty")}</li>}
       </ul>
 
       {currentUser?.isSuperadmin && (
-        <div style={{ marginTop: 24 }}>
+        <div className="card section">
           <h2>{t("clubs.create.title")}</h2>
           <form onSubmit={handleSubmit(onSubmit)}>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("clubs.create.name")}
-                <input {...register("name")} style={{ display: "block", width: "100%" }} />
+                <input {...register("name")} />
               </label>
-              {errors.name && <span style={{ color: "red" }}>{errors.name.message}</span>}
+              {errors.name && <span className="field-error">{errors.name.message}</span>}
             </div>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("clubs.create.city")}
-                <input {...register("city")} style={{ display: "block", width: "100%" }} />
+                <input {...register("city")} />
               </label>
             </div>
             {createClub.isError && (
-              <p style={{ color: "red" }}>
+              <p className="field-error">
                 {createClub.error instanceof ApiError ? createClub.error.message : t("clubs.create.error")}
               </p>
             )}
-            <button type="submit" disabled={createClub.isPending}>
+            <button type="submit" className="btn-primary" disabled={createClub.isPending}>
               {t("clubs.create.submit")}
             </button>
           </form>

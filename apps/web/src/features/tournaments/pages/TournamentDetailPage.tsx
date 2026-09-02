@@ -93,24 +93,24 @@ export function TournamentDetailPage() {
   if (!tournament) return <p>{t("tournaments.notFound")}</p>;
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>{tournament.name}</h1>
       {tournament.location && <p>{tournament.location}</p>}
-      <p>{new Date(tournament.startDate).toLocaleDateString()}</p>
+      <p className="hint">{new Date(tournament.startDate).toLocaleDateString()}</p>
 
       <h2>{t("tournaments.detail.matches")}</h2>
-      <ul>
+      <ul className="list">
         {matches?.map((match) => (
           <MatchListItem key={match.id} match={match} />
         ))}
-        {matches?.length === 0 && <li>{t("tournaments.detail.noMatches")}</li>}
+        {matches?.length === 0 && <li className="empty">{t("tournaments.detail.noMatches")}</li>}
       </ul>
 
       {participatingTeamIds.length > 0 && (
         <>
-          <h2>{t("tournaments.detail.rosters")}</h2>
-          <ul>
+          <h2 style={{ marginTop: 24 }}>{t("tournaments.detail.rosters")}</h2>
+          <ul className="list">
             {participatingTeamIds.map((teamId) => (
               <TeamRosterLink key={teamId} teamId={teamId} tournamentId={tournamentId ?? ""} />
             ))}
@@ -119,18 +119,14 @@ export function TournamentDetailPage() {
       )}
 
       {canCreateMatch && (
-        <div style={{ marginTop: 24 }}>
+        <div className="card section">
           <h2>{t("tournaments.detail.createMatch")}</h2>
           <form onSubmit={handleSubmit(onSubmit)}>
             <div style={{ display: "flex", gap: 16 }}>
-              <div>
+              <div style={{ flex: 1 }}>
                 <label>
                   {t("tournaments.detail.homeClub")}
-                  <select
-                    value={homeClubId}
-                    onChange={(e) => setHomeClubId(e.target.value)}
-                    style={{ display: "block" }}
-                  >
+                  <select value={homeClubId} onChange={(e) => setHomeClubId(e.target.value)}>
                     <option value="">{t("tournaments.detail.selectClub")}</option>
                     {clubs?.map((club) => (
                       <option key={club.id} value={club.id}>
@@ -139,9 +135,9 @@ export function TournamentDetailPage() {
                     ))}
                   </select>
                 </label>
-                <label>
+                <label style={{ marginTop: 10 }}>
                   {t("tournaments.detail.homeTeam")}
-                  <select {...register("homeTeamId")} style={{ display: "block" }}>
+                  <select {...register("homeTeamId")}>
                     <option value="">{t("tournaments.detail.selectTeam")}</option>
                     {homeTeams?.map((team) => (
                       <option key={team.id} value={team.id}>
@@ -151,14 +147,10 @@ export function TournamentDetailPage() {
                   </select>
                 </label>
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <label>
                   {t("tournaments.detail.awayClub")}
-                  <select
-                    value={awayClubId}
-                    onChange={(e) => setAwayClubId(e.target.value)}
-                    style={{ display: "block" }}
-                  >
+                  <select value={awayClubId} onChange={(e) => setAwayClubId(e.target.value)}>
                     <option value="">{t("tournaments.detail.selectClub")}</option>
                     {clubs?.map((club) => (
                       <option key={club.id} value={club.id}>
@@ -167,9 +159,9 @@ export function TournamentDetailPage() {
                     ))}
                   </select>
                 </label>
-                <label>
+                <label style={{ marginTop: 10 }}>
                   {t("tournaments.detail.awayTeam")}
-                  <select {...register("awayTeamId")} style={{ display: "block" }}>
+                  <select {...register("awayTeamId")}>
                     <option value="">{t("tournaments.detail.selectTeam")}</option>
                     {awayTeams?.map((team) => (
                       <option key={team.id} value={team.id}>
@@ -180,9 +172,9 @@ export function TournamentDetailPage() {
                 </label>
               </div>
             </div>
-            <label style={{ display: "block", marginTop: 8 }}>
+            <label style={{ marginTop: 10 }}>
               {t("tournaments.detail.phase")}
-              <select {...register("phase")} style={{ display: "block" }}>
+              <select {...register("phase")}>
                 <option value="">{t("tournaments.detail.noPhase")}</option>
                 {Object.values(MatchPhase).map((phase) => (
                   <option key={phase} value={phase}>
@@ -192,16 +184,16 @@ export function TournamentDetailPage() {
               </select>
             </label>
             {(errors.homeTeamId || errors.awayTeamId) && (
-              <p style={{ color: "red" }}>{t("tournaments.detail.matchTeamError")}</p>
+              <p className="field-error">{t("tournaments.detail.matchTeamError")}</p>
             )}
             {createMatch.isError && (
-              <p style={{ color: "red" }}>
+              <p className="field-error">
                 {createMatch.error instanceof ApiError
                   ? createMatch.error.message
                   : t("tournaments.detail.createMatchError")}
               </p>
             )}
-            <button type="submit" disabled={createMatch.isPending} style={{ marginTop: 8 }}>
+            <button type="submit" className="btn-primary" disabled={createMatch.isPending} style={{ marginTop: 12 }}>
               {t("tournaments.detail.createMatchSubmit")}
             </button>
           </form>

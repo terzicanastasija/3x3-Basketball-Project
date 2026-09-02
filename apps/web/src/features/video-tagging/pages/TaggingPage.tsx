@@ -228,14 +228,14 @@ export function TaggingPage() {
   if (!match) return <p>{t("matches.notFound")}</p>;
 
   return (
-    <div style={{ maxWidth: 960, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page page-wide">
       <NavBar />
       <h1>
         {t("tagging.title")}: {match.phase && `${t(`matchPhase.${match.phase}`)} — `}
         {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}
       </h1>
 
-      {isLocked && <p style={{ color: "green", fontWeight: "bold" }}>{t("tagging.locked")}</p>}
+      {isLocked && <span className="badge badge-locked">{t("tagging.locked")}</span>}
 
       {!selectedVideoId && matchId && canTag && (
         <VideoRegistrationPanel matchId={matchId} selectedVideoId={selectedVideoId} onSelect={setSelectedVideoId} />
@@ -243,7 +243,7 @@ export function TaggingPage() {
       {!selectedVideoId && !canTag && <p>{t("tagging.video.noneYet")}</p>}
 
       {selectedVideoId && playback && (
-        <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
+        <div style={{ display: "flex", gap: 24, marginTop: 16, flexWrap: "wrap" }}>
           <div>
             <VideoPlayer
               sourceType={playback.sourceType as "FILE" | "EXTERNAL"}
@@ -254,14 +254,14 @@ export function TaggingPage() {
               }}
             />
             {canTag && (
-              <button onClick={() => setSelectedVideoId(null)} style={{ marginTop: 8 }}>
+              <button className="btn-ghost btn-small" onClick={() => setSelectedVideoId(null)} style={{ marginTop: 8 }}>
                 {t("tagging.video.changeVideo")}
               </button>
             )}
           </div>
 
           {canTag && (
-          <div style={{ flex: 1 }}>
+          <div className="card" style={{ flex: 1, minWidth: 320 }}>
             <div style={{ marginBottom: 12 }}>
               <label>
                 {t("tagging.team")}
@@ -272,7 +272,6 @@ export function TaggingPage() {
                     setSelectedPlayerId("");
                     setSelectedRelatedPlayerId("");
                   }}
-                  style={{ display: "block" }}
                 >
                   {homeTeam && <option value={homeTeam.id}>{homeTeam.name}</option>}
                   {awayTeam && <option value={awayTeam.id}>{awayTeam.name}</option>}
@@ -281,13 +280,9 @@ export function TaggingPage() {
             </div>
 
             <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
-              <label>
+              <label style={{ flex: 1 }}>
                 {t("tagging.player")}
-                <select
-                  value={selectedPlayerId}
-                  onChange={(e) => setSelectedPlayerId(e.target.value)}
-                  style={{ display: "block" }}
-                >
+                <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)}>
                   <option value="">{t("tagging.selectPlayer")}</option>
                   {teamPlayers.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -296,13 +291,9 @@ export function TaggingPage() {
                   ))}
                 </select>
               </label>
-              <label>
+              <label style={{ flex: 1 }}>
                 {t("tagging.relatedPlayer")}
-                <select
-                  value={selectedRelatedPlayerId}
-                  onChange={(e) => setSelectedRelatedPlayerId(e.target.value)}
-                  style={{ display: "block" }}
-                >
+                <select value={selectedRelatedPlayerId} onChange={(e) => setSelectedRelatedPlayerId(e.target.value)}>
                   <option value="">{t("tagging.selectPlayer")}</option>
                   {teamPlayers.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -313,11 +304,17 @@ export function TaggingPage() {
               </label>
             </div>
 
-            <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              <button onClick={markIn} disabled={isLocked || !adapterReady} title={t("tagging.markInHint")}>
+            <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn-small"
+                onClick={markIn}
+                disabled={isLocked || !adapterReady}
+                title={t("tagging.markInHint")}
+              >
                 {t("tagging.markIn")} ([)
               </button>
               <button
+                className="btn-small"
                 onClick={markOut}
                 disabled={isLocked || !adapterReady || markedInSec === null}
                 title={t("tagging.markOutHint")}
@@ -325,23 +322,27 @@ export function TaggingPage() {
                 {t("tagging.markOut")} (])
               </button>
               {markedInSec !== null && markedOutSec !== null && (
-                <span>
+                <span className="hint">
                   {t("tagging.clipWindowMarked", { in: markedInSec.toFixed(1), out: markedOutSec.toFixed(1) })}{" "}
-                  <button onClick={clearMark}>{t("tagging.clearMark")}</button>
+                  <button className="btn-ghost btn-small" onClick={clearMark}>
+                    {t("tagging.clearMark")}
+                  </button>
                 </span>
               )}
               {markedInSec !== null && markedOutSec === null && (
-                <span>
+                <span className="hint">
                   {t("tagging.clipWindowInOnly", { in: markedInSec.toFixed(1) })}{" "}
-                  <button onClick={clearMark}>{t("tagging.clearMark")}</button>
+                  <button className="btn-ghost btn-small" onClick={clearMark}>
+                    {t("tagging.clearMark")}
+                  </button>
                 </span>
               )}
             </div>
 
             {editingTagId && (
-              <p style={{ background: "#eef", padding: 8 }}>
+              <p className="callout">
                 {t("tagging.editingHint")}
-                <label style={{ display: "block" }}>
+                <label style={{ display: "flex", flexDirection: "row", alignItems: "center", textTransform: "none", fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 14.5, letterSpacing: "normal", color: "var(--ink)" }}>
                   <input
                     type="checkbox"
                     checked={recaptureTimestamp}
@@ -349,7 +350,7 @@ export function TaggingPage() {
                   />
                   {t("tagging.recaptureTimestamp")}
                 </label>
-                <label style={{ display: "block" }}>
+                <label style={{ display: "flex", flexDirection: "row", alignItems: "center", textTransform: "none", fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 14.5, letterSpacing: "normal", color: "var(--ink)" }}>
                   <input
                     type="checkbox"
                     checked={useMarkedWindow}
@@ -358,7 +359,9 @@ export function TaggingPage() {
                   />
                   {t("tagging.useMarkedWindow")}
                 </label>
-                <button onClick={() => setEditingTagId(null)}>{t("tagging.cancelEdit")}</button>
+                <button className="btn-ghost btn-small" style={{ marginTop: 6 }} onClick={() => setEditingTagId(null)}>
+                  {t("tagging.cancelEdit")}
+                </button>
               </p>
             )}
 
@@ -366,6 +369,7 @@ export function TaggingPage() {
               {Object.values(ActionType).map((actionType) => (
                 <button
                   key={actionType}
+                  className="btn-small"
                   disabled={isLocked || !adapterReady}
                   onClick={() => handleActionType(actionType)}
                   title={`${t("tagging.hotkeyHint")}: ${ACTION_TYPE_HOTKEYS[actionType]}`}
@@ -379,33 +383,45 @@ export function TaggingPage() {
         </div>
       )}
 
-      <div style={{ marginTop: 24 }}>
+      <div className="section">
         <h2>{t("tagging.tagList")}</h2>
-        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+        <div style={{ maxHeight: 340, overflowY: "auto" }}>
           <ul>
             {tags?.map((tag) => (
-              <li key={tag.id}>
-                <label>
+              <li
+                key={tag.id}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}
+              >
+                <label style={{ flexDirection: "row", alignItems: "center", textTransform: "none", fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 14, letterSpacing: "normal", color: "var(--ink)" }}>
                   <input
                     type="checkbox"
                     checked={selectedTagIds.includes(tag.id)}
                     onChange={() => toggleTagSelection(tag.id)}
-                  />{" "}
-                  {tag.timestampSec.toFixed(1)}s — {t(ACTION_TYPE_I18N_KEY[tag.actionType])}
-                  {tag.pointValue ? ` (+${tag.pointValue})` : ""}
-                  {tag.player ? ` — ${tag.player.firstName} ${tag.player.lastName}` : ""}
-                  {tag.relatedPlayer ? ` (${tag.relatedPlayer.firstName} ${tag.relatedPlayer.lastName})` : ""}
-                  {typeof tag.clipInSec === "number" && typeof tag.clipOutSec === "number"
-                    ? ` — ${t("tagging.clipWindowMarked", { in: tag.clipInSec.toFixed(1), out: tag.clipOutSec.toFixed(1) })}`
-                    : ""}
+                  />
+                  <span>
+                    <span className="hint">{tag.timestampSec.toFixed(1)}s</span> —{" "}
+                    {t(ACTION_TYPE_I18N_KEY[tag.actionType])}
+                    {tag.pointValue ? ` (+${tag.pointValue})` : ""}
+                    {tag.player ? ` — ${tag.player.firstName} ${tag.player.lastName}` : ""}
+                    {tag.relatedPlayer ? ` (${tag.relatedPlayer.firstName} ${tag.relatedPlayer.lastName})` : ""}
+                    {typeof tag.clipInSec === "number" && typeof tag.clipOutSec === "number"
+                      ? ` — ${t("tagging.clipWindowMarked", { in: tag.clipInSec.toFixed(1), out: tag.clipOutSec.toFixed(1) })}`
+                      : ""}
+                  </span>
                 </label>
-                <ClipBadge tagId={tag.id} />{" "}
-                {canTag && !isLocked && (
-                  <>
-                    <button onClick={() => startEditing(tag.id)}>{t("tagging.edit")}</button>{" "}
-                    <button onClick={() => deleteTag.mutate(tag.id)}>{t("tagging.delete")}</button>
-                  </>
-                )}
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <ClipBadge tagId={tag.id} />
+                  {canTag && !isLocked && (
+                    <>
+                      <button className="btn-small" onClick={() => startEditing(tag.id)}>
+                        {t("tagging.edit")}
+                      </button>
+                      <button className="btn-danger btn-small" onClick={() => deleteTag.mutate(tag.id)}>
+                        {t("tagging.delete")}
+                      </button>
+                    </>
+                  )}
+                </span>
               </li>
             ))}
             {tags?.length === 0 && <li>{t("tagging.noTags")}</li>}
@@ -413,16 +429,12 @@ export function TaggingPage() {
         </div>
 
         {selectedTagIds.length > 0 && (
-          <div style={{ marginTop: 8, padding: 8, background: "#eef" }}>
-            <label>
+          <div className="callout" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <label style={{ flexDirection: "row", alignItems: "center", flex: 1, minWidth: 200, textTransform: "none", fontFamily: "var(--font-body)", fontWeight: 400, fontSize: 14, letterSpacing: "normal", color: "var(--ink)", gap: 8 }}>
               {t("clips.compilationTitle")}
-              <input
-                value={compilationTitle}
-                onChange={(e) => setCompilationTitle(e.target.value)}
-                style={{ marginLeft: 8 }}
-              />
-            </label>{" "}
-            <button onClick={handleCreateCompilation} disabled={createCompilation.isPending}>
+              <input value={compilationTitle} onChange={(e) => setCompilationTitle(e.target.value)} />
+            </label>
+            <button className="btn-primary btn-small" onClick={handleCreateCompilation} disabled={createCompilation.isPending}>
               {t("clips.buildCompilation", { count: selectedTagIds.length })}
             </button>
           </div>
@@ -430,8 +442,12 @@ export function TaggingPage() {
       </div>
 
       {canTag && (
-        <div style={{ position: "sticky", bottom: 0, background: "white", padding: 12, borderTop: "1px solid #ccc" }}>
-          <button onClick={() => lockMatch.mutate()} disabled={isLocked || lockMatch.isPending}>
+        <div className="tag-lock-bar">
+          <button
+            className={isLocked ? "btn-ghost" : "btn-primary"}
+            onClick={() => lockMatch.mutate()}
+            disabled={isLocked || lockMatch.isPending}
+          >
             {isLocked ? t("tagging.locked") : t("tagging.lockMatch")}
           </button>
         </div>

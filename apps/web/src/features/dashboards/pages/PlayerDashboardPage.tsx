@@ -18,7 +18,7 @@ export function PlayerDashboardPage() {
       : null;
 
   return (
-    <div style={{ maxWidth: 640, margin: "2rem auto", fontFamily: "sans-serif" }}>
+    <div className="page">
       <NavBar />
       <h1>
         {player?.firstName} {player?.lastName} — {t("dashboards.player.title")}
@@ -27,9 +27,9 @@ export function PlayerDashboardPage() {
       <h2>{t("dashboards.player.career")}</h2>
       {!data?.career && <p>{t("dashboards.player.noCareerStats")}</p>}
       {data?.career && (
-        <ul>
+        <ul className="card">
           <li>
-            {t("dashboards.player.ppg")}: {ppg}
+            {t("dashboards.player.ppg")}: <strong>{ppg}</strong>
           </li>
           <li>
             {t("dashboards.table.points")}: {data.career.points}
@@ -46,31 +46,33 @@ export function PlayerDashboardPage() {
         </ul>
       )}
 
-      <h2>{t("dashboards.player.matchHistory")}</h2>
+      <h2 style={{ marginTop: 24 }}>{t("dashboards.player.matchHistory")}</h2>
       {(!data || data.matches.length === 0) && <p>{t("dashboards.player.noMatches")}</p>}
       {data && data.matches.length > 0 && (
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left" }}>{t("dashboards.table.points")}</th>
-              <th style={{ textAlign: "left" }}>{t("dashboards.table.rebounds")}</th>
-              <th style={{ textAlign: "left" }}>{t("dashboards.table.assists")}</th>
-              <th style={{ textAlign: "left" }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.matches.map((row) => (
-              <tr key={row.id}>
-                <td>{row.points}</td>
-                <td>{row.offRebounds + row.defRebounds}</td>
-                <td>{row.assists}</td>
-                <td>
-                  <Link to={`/matches/${row.match.id}/tag`}>{t("dashboards.player.viewTagsAndClips")}</Link>
-                </td>
+        <div style={{ overflowX: "auto" }}>
+          <table>
+            <thead>
+              <tr>
+                <th>{t("dashboards.table.points")}</th>
+                <th>{t("dashboards.table.rebounds")}</th>
+                <th>{t("dashboards.table.assists")}</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.matches.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.points}</td>
+                  <td>{row.offRebounds + row.defRebounds}</td>
+                  <td>{row.assists}</td>
+                  <td>
+                    <Link to={`/matches/${row.match.id}/tag`}>{t("dashboards.player.viewTagsAndClips")}</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

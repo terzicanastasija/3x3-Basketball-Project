@@ -23,39 +23,40 @@ export function LoginPage() {
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "4rem auto", fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+    <div className="page page-narrow">
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
         <LanguageSwitcher />
       </div>
+      <div className="app-nav__mark" style={{ color: "var(--ink)", marginBottom: 4 }}>
+        3<em>x</em>3
+      </div>
       <h1>{t("auth.login.title")}</h1>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            {t("auth.login.email")}
-            <input type="email" {...register("email")} style={{ display: "block", width: "100%" }} />
-          </label>
-          {errors.email && <span style={{ color: "red" }}>{errors.email.message}</span>}
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <label>
-            {t("auth.login.password")}
-            <input
-              type="password"
-              {...register("password")}
-              style={{ display: "block", width: "100%" }}
-            />
-          </label>
-          {errors.password && <span style={{ color: "red" }}>{errors.password.message}</span>}
-        </div>
-        {login.isError && (
-          <p style={{ color: "red" }}>
-            {login.error instanceof ApiError ? login.error.message : t("auth.login.error")}
-          </p>
-        )}
-        <button type="submit" disabled={login.isPending}>
-          {t("auth.login.submit")}
-        </button>
-      </form>
+      <div className="card">
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div style={{ marginBottom: 12 }}>
+            <label>
+              {t("auth.login.email")}
+              <input type="email" {...register("email")} />
+            </label>
+            {errors.email && <span className="field-error">{errors.email.message}</span>}
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label>
+              {t("auth.login.password")}
+              <input type="password" {...register("password")} />
+            </label>
+            {errors.password && <span className="field-error">{errors.password.message}</span>}
+          </div>
+          {login.isError && (
+            <p className="field-error">
+              {login.error instanceof ApiError ? login.error.message : t("auth.login.error")}
+            </p>
+          )}
+          <button type="submit" className="btn-primary" disabled={login.isPending}>
+            {t("auth.login.submit")}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
