@@ -3,28 +3,34 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { PlayerSearchQueryDto } from "@3x3/shared";
 import { usePlayers } from "../api";
-import { NavBar } from "../../../components/NavBar";
+import { useClubs } from "../../clubs/api";
 
 export function PlayersListPage() {
   const { t } = useTranslation();
   const [filters, setFilters] = useState<PlayerSearchQueryDto>({});
   const { data: players, isLoading } = usePlayers(filters);
+  const { data: clubs } = useClubs();
 
   const updateFilter = (patch: Partial<PlayerSearchQueryDto>) =>
     setFilters((prev) => ({ ...prev, ...patch }));
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{t("players.title")}</h1>
 
       <div className="card inline-row">
-        <input
-          placeholder={t("players.filters.clubId") ?? ""}
+        <select
           value={filters.clubId ?? ""}
           onChange={(e) => updateFilter({ clubId: e.target.value || undefined })}
           className="inline-field"
-        />
+        >
+          <option value="">{t("players.filters.allClubs")}</option>
+          {clubs?.map((club) => (
+            <option key={club.id} value={club.id}>
+              {club.name}
+            </option>
+          ))}
+        </select>
         <input
           placeholder={t("players.filters.city") ?? ""}
           value={filters.city ?? ""}

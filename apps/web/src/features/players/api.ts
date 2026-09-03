@@ -63,3 +63,11 @@ export function useUpdatePlayer(playerId: string) {
     },
   });
 }
+
+export function useDeletePlayer(playerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiFetch<void>(`/players/${playerId}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["players"] }),
+  });
+}
