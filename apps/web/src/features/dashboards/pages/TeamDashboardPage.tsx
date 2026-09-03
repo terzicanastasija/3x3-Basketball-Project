@@ -2,7 +2,6 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTeam } from "../../teams/api";
 import { useTeamDashboard } from "../api";
-import { NavBar } from "../../../components/NavBar";
 
 export function TeamDashboardPage() {
   const { t } = useTranslation();
@@ -14,7 +13,6 @@ export function TeamDashboardPage() {
 
   return (
     <div className="page page-narrow">
-      <NavBar />
       <h1>
         {team?.name ?? "…"} — {t("dashboards.team.title")}
       </h1>

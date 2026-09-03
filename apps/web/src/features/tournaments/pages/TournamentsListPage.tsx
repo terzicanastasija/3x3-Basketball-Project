@@ -6,7 +6,6 @@ import { createTournamentSchema, CreateTournamentDto, TournamentFormat } from "@
 import { useCreateTournament, useTournaments } from "../api";
 import { useCurrentUser } from "../../auth/api";
 import { ApiError } from "../../../lib/api-client";
-import { NavBar } from "../../../components/NavBar";
 
 export function TournamentsListPage() {
   const { t } = useTranslation();
@@ -31,7 +30,6 @@ export function TournamentsListPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{t("tournaments.title")}</h1>
       {isLoading && <p>{t("home.loading")}</p>}
       <ul className="list">

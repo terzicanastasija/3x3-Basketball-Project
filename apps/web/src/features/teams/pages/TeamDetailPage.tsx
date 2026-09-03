@@ -11,7 +11,6 @@ import {
 } from "../../rosters/api";
 import { usePlayers } from "../../players/api";
 import { useCurrentUser } from "../../auth/api";
-import { NavBar } from "../../../components/NavBar";
 
 export function TeamDetailPage() {
   const { t } = useTranslation();
@@ -46,7 +45,6 @@ export function TeamDetailPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{team.name}</h1>
 
       <h2>{t("teams.roster.tournamentPicker")}</h2>

@@ -10,7 +10,6 @@ import { useClubs } from "../../clubs/api";
 import { useTeam, useTeamsForClub } from "../../teams/api";
 import { useCurrentUser } from "../../auth/api";
 import { ApiError } from "../../../lib/api-client";
-import { NavBar } from "../../../components/NavBar";
 
 // A match only stores homeTeamId/awayTeamId, not each team's clubId, so the roster-builder
 // deep link (which needs :clubId) is resolved per-team via this small lookup component
@@ -94,7 +93,6 @@ export function TournamentDetailPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{tournament.name}</h1>
       {tournament.location && <p>{tournament.location}</p>}
       <p className="hint">{new Date(tournament.startDate).toLocaleDateString()}</p>

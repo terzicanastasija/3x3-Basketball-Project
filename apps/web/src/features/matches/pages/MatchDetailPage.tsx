@@ -9,7 +9,6 @@ import { useTeam } from "../../teams/api";
 import { useCurrentUser } from "../../auth/api";
 import { useStatRecomputeStatus } from "../../dashboards/api";
 import { ApiError } from "../../../lib/api-client";
-import { NavBar } from "../../../components/NavBar";
 
 export function MatchDetailPage() {
   const { t } = useTranslation();
@@ -67,7 +66,6 @@ export function MatchDetailPage() {
 
   return (
     <div className="page page-narrow">
-      <NavBar />
       {match.phase && <span className="badge">{t(`matchPhase.${match.phase}`)}</span>}
       <h1>
         {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}

@@ -17,7 +17,6 @@ import { useTeamsForClub, useCreateTeam } from "../../teams/api";
 import { useCreatePlayer } from "../../players/api";
 import { useCurrentUser } from "../../auth/api";
 import { ApiError } from "../../../lib/api-client";
-import { NavBar } from "../../../components/NavBar";
 
 export function ClubDetailPage() {
   const { t } = useTranslation();
@@ -51,7 +50,6 @@ export function ClubDetailPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{club.name}</h1>
       {club.city && <p>{club.city}</p>}
 

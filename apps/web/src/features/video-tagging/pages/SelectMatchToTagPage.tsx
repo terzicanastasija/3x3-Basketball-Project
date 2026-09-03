@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useTournaments } from "../../tournaments/api";
 import { useMatchesForTournament } from "../../matches/api";
 import { useTeams } from "../../teams/api";
-import { NavBar } from "../../../components/NavBar";
 
 // The Scout's entry point into tagging: pick a Tournament, then pick one of its existing
 // Matches, then jump to the real tagging screen. Scouts never create tournaments/matches
@@ -38,7 +37,6 @@ export function SelectMatchToTagPage() {
 
   return (
     <div className="page page-narrow">
-      <NavBar />
       <h1>{t("tagging.select.title")}</h1>
 
       <div className="card">

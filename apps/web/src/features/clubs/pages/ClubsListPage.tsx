@@ -6,7 +6,6 @@ import { createClubSchema, CreateClubDto } from "@3x3/shared";
 import { useClubs, useCreateClub } from "../api";
 import { useCurrentUser } from "../../auth/api";
 import { ApiError } from "../../../lib/api-client";
-import { NavBar } from "../../../components/NavBar";
 
 export function ClubsListPage() {
   const { t } = useTranslation();
@@ -27,7 +26,6 @@ export function ClubsListPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{t("clubs.title")}</h1>
       {isLoading && <p>{t("home.loading")}</p>}
       <ul className="list">

@@ -2,7 +2,6 @@ import { useParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ACTION_TYPE_I18N_KEY } from "@3x3/shared";
 import { useCompilation } from "../api";
-import { NavBar } from "../../../components/NavBar";
 
 export function CompilationDetailPage() {
   const { t } = useTranslation();
@@ -14,7 +13,6 @@ export function CompilationDetailPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{compilation.title}</h1>
       <ol className="card" style={{ paddingLeft: 20 }}>
         {compilation.items.map((item) => (

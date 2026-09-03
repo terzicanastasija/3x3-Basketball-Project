@@ -1,7 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMatchDashboard } from "../api";
-import { NavBar } from "../../../components/NavBar";
 
 export function MatchDashboardPage() {
   const { t } = useTranslation();
@@ -15,7 +14,6 @@ export function MatchDashboardPage() {
 
   return (
     <div className="page page-wide">
-      <NavBar />
       <h1>{t("dashboards.match.title")}</h1>
       <p>
         <Link to={`/matches/${matchId}/tag`}>{t("dashboards.match.viewTagsAndClips")}</Link>

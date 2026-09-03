@@ -2,7 +2,6 @@ import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { usePlayer } from "../../players/api";
 import { usePlayerDashboard } from "../api";
-import { NavBar } from "../../../components/NavBar";
 
 export function PlayerDashboardPage() {
   const { t } = useTranslation();
@@ -19,7 +18,6 @@ export function PlayerDashboardPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>
         {player?.firstName} {player?.lastName} — {t("dashboards.player.title")}
       </h1>
