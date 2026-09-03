@@ -35,6 +35,9 @@ export function NavBar() {
         <NavLink to="/tournaments" className={navLinkClassName}>
           {t("nav.tournaments")}
         </NavLink>
+        <NavLink to="/search" className={navLinkClassName}>
+          {t("nav.search")}
+        </NavLink>
         {canTag && (
           <NavLink to="/tag" className={navLinkClassName}>
             {t("nav.tagMatch")}
