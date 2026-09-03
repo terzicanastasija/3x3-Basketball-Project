@@ -1,3 +1,77 @@
+## Post-MVP: manual-testing feedback pass as Admin — nav layout bug, home dashboard, player delete/DOB, club-name search, post-lock admin override (2026-09-03)
+
+User manually clicked through the app as Superadmin (dev stack started fresh this session — Docker
+Desktop wasn't running, brought up cleanly with no config drift) and filed a batch of concrete
+feedback. Addressed all of it:
+
+**Root-caused the "nav looks vertical" bug reported on multiple pages** (Player detail, Tag a
+Match): every one of ~16 authenticated pages mounted its own `<NavBar />` *inside* its own
+width-constrained `.page`/`.page-narrow`/`.page-wide` wrapper — on a `.page-narrow` page
+(`max-width: 380px`) the nav's own links didn't fit and wrapped line-by-line, reading as a
+vertical stack. Fixed at the root instead of per-page: `NavBar` is now rendered once, in
+`RequireAuth.tsx`, inside a new `.nav-shell` (1100px, independent of whatever width class the
+page below it picks) — removed the duplicate `<NavBar />` import+JSX from all 16 pages via a
+scripted sed pass (verified each file individually afterward, spot-checked live in browser). This
+also structurally prevents the same bug recurring on any future `page-narrow` page, not just a
+patch for the two pages reported.
+
+**Superadmin home page redesigned** from a bare "Email / Superadmin: yes / Clubs: (none)" dump
+into an actual dashboard: shows the most-recently-started tournament's matches, each with a
+LOCKED / IN PROGRESS / NOT STARTED badge (derived from `match.lockedAt` + whether the match has
+any tags yet — a small per-row `useTagsForMatch` fetch, fine at this data scale, same "N+1 is
+acceptable here" call already made elsewhere e.g. the PPG filter). Made generic for every role,
+not superadmin-only — a Scout/Coach benefits from "what needs tagging" just as much.
+
+**Player delete + date of birth**: the `DELETE /players/:playerId` endpoint already existed
+(Admin-only, from an earlier session) but had no frontend button at all — added one to
+`PlayerDetailPage` (Admin-gated, `window.confirm`'d — the app's only destructive-action
+confirmation dialog so far, deliberately more cautious than the no-confirm delete-tag/
+remove-roster-player pattern elsewhere, since deleting a player record is far harder to undo).
+`dateOfBirth` was already wired end-to-end in the schema/DTOs/backend search (`minAge`/`maxAge`
+filters already existed) but was never displayed or editable in the UI — added a "Date of birth"
++ computed "Age" row to the player detail card and a date input to the edit form.
+
+**Player search: club-name dropdown instead of a raw Club ID text field** — `PlayersListPage`
+had a plain text input bound directly to `homeClubId`, meaning you had to already know a club's
+internal ID to filter by it. Replaced with a `<select>` populated from `useClubs()` (label = club
+name, value = id) — no backend change needed, the `clubId` filter param was already correct, it
+just needed a real picker instead of asking for a raw ID.
+
+**Admin can now edit/delete tags on a match after a Scout has locked it** — this was a real gap,
+not a misunderstanding: `TagsService.ensureUnlockedAndManageable` rejected *any* tag
+create/update/delete on a locked match, superadmin included, even though other override patterns
+in this app already exist (Superadmin can delete a PLAYED match; see the RBAC overhaul section
+below). Fixed: the lock now only blocks a Scout — `if (match.lockedAt && !user.isSuperadmin)` —
+and each Admin-on-locked-match mutation re-enqueues a stat recompute afterward (via the same
+`StatRecomputeQueueService` the original lock already used), so a correction actually reaches the
+dashboards instead of leaving them stale. Frontend: `TaggingPage` now derives `isEditableLocked =
+isLocked && !currentUser?.isSuperadmin` and uses that (instead of raw `isLocked`) to gate every
+editing control — mark in/out, the action-type grid, the keydown hotkey handler, and each tag's
+edit/delete buttons — while a Scout stays fully locked out, matching the original intent of
+locking ("finalizes the Scout's work"). 5 new backend unit tests (Admin bypass + recompute
+re-enqueue for create/update/delete) and 1 new frontend test (Admin sees a working delete button
+on a locked match); verified live against `match-dunav-vs-sava` (the user's own real locked
+match, left untouched afterward — only read, no tags actually created/edited/deleted during
+verification).
+
+**Compilations — added a one-line explanation**, not a code feature: user didn't understand what
+the feature was for. Added a `hint`-styled description under the page title ("A compilation is a
+highlight reel: pick tagged actions on a match's tagging screen and string their clips together
+into one ordered playlist you can play back or share.") rather than changing any behavior — the
+feature itself (already built in Phase 5) was working correctly, it just had zero in-app
+explanation of its purpose.
+
+Moved the pre-existing NavBar-logout test out of `HomePage.test.tsx` into a new
+`components/NavBar.test.tsx` (it was really testing NavBar, not HomePage — HomePage no longer
+renders NavBar itself now that it's hoisted into RequireAuth) and rewrote `HomePage.test.tsx` for
+the new dashboard content. 25/25 frontend tests passing (up from 23), 85/85 backend (up from 82),
+clean `tsc -b` and `nest build`. Verified live in a real connected browser throughout, not just
+via tests: home page badges, player detail page (nav + DOB/age + delete), players list club
+dropdown, tag-a-match select page, and the post-lock Admin edit override on the user's own real
+locked match all behave exactly as designed.
+
+---
+
 ## Post-MVP: real visual design for `apps/web` — FIBA 3x3-inspired system (2026-09-02, later still)
 
 User asked for the frontend to be "really clean," pointed at fiba3x3.com as an aesthetic
