@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCompilations } from "../api";
-import { NavBar } from "../../../components/NavBar";
 
 export function CompilationsListPage() {
   const { t } = useTranslation();
@@ -9,8 +8,8 @@ export function CompilationsListPage() {
 
   return (
     <div className="page">
-      <NavBar />
       <h1>{t("clips.list.title")}</h1>
+      <p className="hint">{t("clips.list.description")}</p>
       {isLoading && <p>{t("home.loading")}</p>}
       <ul className="list">
         {compilations?.map((compilation) => (

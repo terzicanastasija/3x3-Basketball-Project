@@ -38,7 +38,13 @@
   },
   "home": {
     "welcome": "Welcome, {{name}}",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "noTournaments": "No tournaments yet.",
+    "matchStatus": {
+      "locked": "Locked",
+      "inProgress": "In progress",
+      "notStarted": "Not started"
+    }
   },
   "roles": {
     "coach": "Coach",
@@ -94,7 +100,7 @@
     "empty": "No players found.",
     "notFound": "Player not found.",
     "filters": {
-      "clubId": "Club ID",
+      "allClubs": "All clubs",
       "city": "City",
       "minAge": "Min age",
       "maxAge": "Max age",
@@ -104,6 +110,8 @@
     "detail": {
       "club": "Club",
       "noClub": "—",
+      "dateOfBirth": "Date of birth",
+      "age": "Age",
       "position": "Position",
       "height": "Height",
       "hand": "Dominant hand",
@@ -113,7 +121,10 @@
       "editSubmit": "Save",
       "editError": "Save failed.",
       "editSuccess": "Saved.",
-      "viewDashboard": "View stats"
+      "viewDashboard": "View stats",
+      "delete": "Delete player",
+      "deleteConfirm": "Delete {{name}}? This cannot be undone.",
+      "deleteError": "Delete failed."
     }
   },
   "tournaments": {
@@ -275,6 +286,7 @@
     "buildCompilation": "Build compilation ({{count}} tags)",
     "list": {
       "title": "Compilations",
+      "description": "A compilation is a highlight reel: pick tagged actions on a match's tagging screen and string their clips together into one ordered playlist you can play back or share.",
       "empty": "No compilations yet."
     },
     "detail": {

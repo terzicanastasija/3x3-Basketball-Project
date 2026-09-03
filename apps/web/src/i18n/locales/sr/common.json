@@ -38,7 +38,13 @@
   },
   "home": {
     "welcome": "Dobrodošli, {{name}}",
-    "loading": "Učitavanje..."
+    "loading": "Učitavanje...",
+    "noTournaments": "Još nema turnira.",
+    "matchStatus": {
+      "locked": "Zaključano",
+      "inProgress": "U toku",
+      "notStarted": "Nije počelo"
+    }
   },
   "roles": {
     "coach": "Trener",
@@ -94,7 +100,7 @@
     "empty": "Nema igrača.",
     "notFound": "Igrač nije pronađen.",
     "filters": {
-      "clubId": "ID kluba",
+      "allClubs": "Svi klubovi",
       "city": "Grad",
       "minAge": "Min. godine",
       "maxAge": "Maks. godine",
@@ -104,6 +110,8 @@
     "detail": {
       "club": "Klub",
       "noClub": "—",
+      "dateOfBirth": "Datum rođenja",
+      "age": "Godine",
       "position": "Pozicija",
       "height": "Visina",
       "hand": "Dominantna ruka",
@@ -113,7 +121,10 @@
       "editSubmit": "Sačuvaj",
       "editError": "Čuvanje nije uspelo.",
       "editSuccess": "Sačuvano.",
-      "viewDashboard": "Pregledaj statistiku"
+      "viewDashboard": "Pregledaj statistiku",
+      "delete": "Obriši igrača",
+      "deleteConfirm": "Obrisati {{name}}? Ovo se ne može poništiti.",
+      "deleteError": "Brisanje nije uspelo."
     }
   },
   "tournaments": {
@@ -275,6 +286,7 @@
     "buildCompilation": "Napravi kompilaciju ({{count}} tagova)",
     "list": {
       "title": "Kompilacije",
+      "description": "Kompilacija je pregled najboljih akcija: izaberi označene akcije na ekranu za tagovanje utakmice i poveži njihove isečke u jednu redosledom uređenu listu za reprodukciju ili deljenje.",
       "empty": "Još nema kompilacija."
     },
     "detail": {
