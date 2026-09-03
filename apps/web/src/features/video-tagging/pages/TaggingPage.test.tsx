@@ -36,6 +36,13 @@ const roster = {
   players: [{ id: "rp-1", playerId: "player-1", jerseyNumber: 7, player: { id: "player-1", firstName: "Marko", lastName: "Markovic" } }],
 };
 
+const awayRoster = {
+  id: "roster-2",
+  teamId: "team-away",
+  tournamentId: "tourn-1",
+  players: [{ id: "rp-2", playerId: "player-2", jerseyNumber: 9, player: { id: "player-2", firstName: "Filip", lastName: "Nikolic" } }],
+};
+
 function renderTaggingPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -99,8 +106,7 @@ function mockCommonFetch(
     if (url.endsWith("/teams/team-away") && method === "GET")
       return jsonResponse({ id: "team-away", clubId: "club-2", name: "Away Team", jerseyColor: null });
     if (url.endsWith("/teams/team-home/rosters/tourn-1") && method === "GET") return jsonResponse(roster);
-    if (url.endsWith("/teams/team-away/rosters/tourn-1") && method === "GET")
-      return jsonResponse({ ...roster, teamId: "team-away", players: [] });
+    if (url.endsWith("/teams/team-away/rosters/tourn-1") && method === "GET") return jsonResponse(awayRoster);
     if (url.endsWith("/matches/match-1/videos") && method === "GET") return jsonResponse([video]);
     if (url.includes("/playback-url") && method === "GET") {
       // Mirrors the real backend (VideoService.getPlaybackUrl): FILE gets a signed stream URL,
@@ -115,6 +121,12 @@ function mockCommonFetch(
       const created = { id: `tag-${createdTags.length + 1}`, matchId: "match-1", ...body };
       createdTags.push(created);
       return jsonResponse(created, { status: 201 });
+    }
+    if (url.match(/\/tags\/tag-\d+\/review$/) && method === "POST") {
+      const tagId = url.match(/\/tags\/(tag-\d+)\/review$/)?.[1];
+      const tag = createdTags.find((t) => t.id === tagId);
+      if (tag) tag.reviewedAt = tag.reviewedAt ? null : "2026-09-03T00:00:00.000Z";
+      return jsonResponse(tag);
     }
     if (url.match(/\/tags\/tag-\d+\/clip$/) && method === "GET") {
       // Video source determines CLIP vs DEEP_LINK — mirrors ClipsService.resolveTagClip.
@@ -351,5 +363,81 @@ describe("TaggingPage — RBAC (Scout/Admin can tag, Coach is read-only)", () =>
 
     const deleteButton = await screen.findByRole("button", { name: /^delete$|^obriši$/i });
     expect(deleteButton).toBeTruthy();
+  });
+});
+
+describe("TaggingPage — defender field", () => {
+  beforeEach(() => {
+    authStorage.setTokens("test-access-token", "test-refresh-token");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("tags a defender from the OPPOSING team's roster, not the tagging team's own roster", async () => {
+    const createdTags: Record<string, unknown>[] = [];
+    mockCommonFetch({ id: "video-1", sourceType: "FILE", fileKey: "matches/match-1/x.mp4" }, createdTags);
+    renderTaggingPage();
+
+    const video = (await screen.findByTestId("video-player-file")) as HTMLVideoElement;
+    video.currentTime = 10;
+    video.dispatchEvent(new Event("loadedmetadata"));
+
+    // Team select defaults to the home team, so the defender dropdown should offer the away
+    // team's roster (Filip Nikolic), not the home team's (Marko Markovic).
+    const defenderSelect = await screen.findByLabelText(/defender|odbrambeni igrač/i);
+    await userEvent.selectOptions(defenderSelect, "player-2");
+
+    const assistButton = (await screen.findByRole("button", {
+      name: /assist|asistencija/i,
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(assistButton.disabled).toBe(false));
+    await userEvent.click(assistButton);
+
+    await waitFor(() => expect(createdTags).toHaveLength(1));
+    expect(createdTags[0]).toMatchObject({ defenderId: "player-2" });
+  });
+});
+
+describe("TaggingPage — tag review (Admin QA)", () => {
+  beforeEach(() => {
+    authStorage.setTokens("test-access-token", "test-refresh-token");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("lets an Admin mark a tag reviewed, and shows the Reviewed badge once it is", async () => {
+    const createdTags: Record<string, unknown>[] = [
+      { id: "tag-1", matchId: "match-1", timestampSec: 5, actionType: "STEAL", teamId: "team-home", pointValue: null, reviewedAt: null },
+    ];
+    mockCommonFetch(
+      { id: "video-1", sourceType: "FILE", fileKey: "matches/match-1/x.mp4" },
+      createdTags,
+      adminCurrentUser
+    );
+    renderTaggingPage();
+
+    await screen.findByText(/steal|kradja/i);
+    expect(screen.queryByText(/^reviewed$|^provereno$/i)).toBeNull();
+
+    const markReviewedButton = await screen.findByRole("button", { name: /mark reviewed|označi kao provereno/i });
+    await userEvent.click(markReviewedButton);
+
+    await screen.findByText(/^reviewed$|^provereno$/i);
+    await screen.findByRole("button", { name: /unmark reviewed|ukloni oznaku provereno/i });
+  });
+
+  it("does not show a review toggle for a Scout — review is Admin-only QA", async () => {
+    const createdTags: Record<string, unknown>[] = [
+      { id: "tag-1", matchId: "match-1", timestampSec: 5, actionType: "STEAL", teamId: "team-home", pointValue: null, reviewedAt: null },
+    ];
+    mockCommonFetch({ id: "video-1", sourceType: "FILE", fileKey: "matches/match-1/x.mp4" }, createdTags, scoutCurrentUser);
+    renderTaggingPage();
+
+    await screen.findByText(/steal|kradja/i);
+    expect(screen.queryByRole("button", { name: /mark reviewed|označi kao provereno/i })).toBeNull();
   });
 });

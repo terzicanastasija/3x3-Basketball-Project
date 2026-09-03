@@ -13,6 +13,7 @@
     "clubs": "Clubs",
     "players": "Players",
     "tournaments": "Tournaments",
+    "search": "Search",
     "tagMatch": "Tag a Match",
     "compilations": "Compilations"
   },
@@ -196,7 +197,12 @@
     "team": "Team",
     "player": "Player",
     "relatedPlayer": "Related player",
+    "defender": "Defender",
+    "defendedBy": "Guarded by {{name}}",
     "selectPlayer": "Select a player",
+    "reviewed": "Reviewed",
+    "markReviewed": "Mark reviewed",
+    "unmarkReviewed": "Unmark reviewed",
     "editingHint": "Editing a tag — pick a new action type to save the change.",
     "recaptureTimestamp": "Use current video time",
     "useMarkedWindow": "Use marked in/out for the clip window",
@@ -276,6 +282,25 @@
       "noMatches": "No matches played yet.",
       "viewTagsAndClips": "Tags & clips"
     }
+  },
+  "tagSearch": {
+    "title": "Search tags",
+    "description": "Find every tagged action across every match — e.g. every offensive rebound by one player this tournament.",
+    "allTournaments": "All tournaments",
+    "anyPlayer": "Any player",
+    "anyDefender": "Any defender",
+    "anyActionType": "Any action type",
+    "madeOrMissed": {
+      "any": "Made or missed",
+      "made": "Made",
+      "missed": "Missed"
+    },
+    "reviewState": {
+      "any": "Reviewed or not",
+      "reviewed": "Reviewed",
+      "unreviewed": "Unreviewed"
+    },
+    "empty": "No tags match these filters."
   },
   "clips": {
     "deepLink": "Deep link",

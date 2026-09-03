@@ -13,6 +13,7 @@
     "clubs": "Klubovi",
     "players": "Igrači",
     "tournaments": "Turniri",
+    "search": "Pretraga",
     "tagMatch": "Označi utakmicu",
     "compilations": "Kompilacije"
   },
@@ -196,7 +197,12 @@
     "team": "Ekipa",
     "player": "Igrač",
     "relatedPlayer": "Povezani igrač",
+    "defender": "Odbrambeni igrač",
+    "defendedBy": "Čuvao ga {{name}}",
     "selectPlayer": "Izaberi igrača",
+    "reviewed": "Provereno",
+    "markReviewed": "Označi kao provereno",
+    "unmarkReviewed": "Ukloni oznaku provereno",
     "editingHint": "Izmena oznake — izaberi novi tip akcije da sačuvaš izmenu.",
     "recaptureTimestamp": "Koristi trenutno vreme videa",
     "useMarkedWindow": "Koristi označen početak/kraj za isečak",
@@ -276,6 +282,25 @@
       "noMatches": "Nema odigranih utakmica.",
       "viewTagsAndClips": "Oznake i isečci"
     }
+  },
+  "tagSearch": {
+    "title": "Pretraga oznaka",
+    "description": "Pronađi svaku označenu akciju kroz sve utakmice — npr. svaki ofanzivni skok jednog igrača na ovom turniru.",
+    "allTournaments": "Svi turniri",
+    "anyPlayer": "Bilo koji igrač",
+    "anyDefender": "Bilo koji odbrambeni igrač",
+    "anyActionType": "Bilo koji tip akcije",
+    "madeOrMissed": {
+      "any": "Pogođeno ili promašeno",
+      "made": "Pogođeno",
+      "missed": "Promašeno"
+    },
+    "reviewState": {
+      "any": "Provereno ili ne",
+      "reviewed": "Provereno",
+      "unreviewed": "Nije provereno"
+    },
+    "empty": "Nijedna oznaka ne odgovara ovim filterima."
   },
   "clips": {
     "deepLink": "Direktan link",

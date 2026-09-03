@@ -14,7 +14,14 @@ import { useRoster } from "../../rosters/api";
 import { usePlayers } from "../../players/api";
 import { usePlaybackUrl, useVideosForMatch } from "../../video/api";
 import { VideoRegistrationPanel } from "../../video/VideoRegistrationPanel";
-import { useCreateTag, useDeleteTag, useLockMatch, useTagsForMatch, useUpdateTag } from "../../tags/api";
+import {
+  useCreateTag,
+  useDeleteTag,
+  useLockMatch,
+  useReviewTag,
+  useTagsForMatch,
+  useUpdateTag,
+} from "../../tags/api";
 import { ClipBadge } from "../../clips/ClipBadge";
 import { useCreateCompilation } from "../../clips/api";
 import { VideoPlayer } from "../player/VideoPlayer";
@@ -59,6 +66,7 @@ export function TaggingPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
   const [selectedRelatedPlayerId, setSelectedRelatedPlayerId] = useState<string>("");
+  const [selectedDefenderId, setSelectedDefenderId] = useState<string>("");
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [recaptureTimestamp, setRecaptureTimestamp] = useState(false);
 
@@ -109,11 +117,26 @@ export function TaggingPage() {
     return fallbackPlayers.data ?? [];
   }, [activeRosterQuery.data, fallbackPlayers.data]);
 
+  // The defender is on the OPPOSING team — same roster-then-club-fallback resolution as
+  // teamPlayers above, just for whichever team isn't currently selected.
+  const opponentRosterQuery = isHomeSelected ? awayRoster : homeRoster;
+  const opponentFallbackClubId = isHomeSelected ? awayTeam?.clubId : homeTeam?.clubId;
+  const opponentNeedsFallback = !opponentRosterQuery.isLoading && !opponentRosterQuery.data;
+  const opponentFallbackPlayers = usePlayers(
+    opponentFallbackClubId ? { clubId: opponentFallbackClubId } : {},
+    { enabled: opponentNeedsFallback && Boolean(opponentFallbackClubId) }
+  );
+  const opponentPlayers = useMemo(() => {
+    if (opponentRosterQuery.data) return opponentRosterQuery.data.players.map((p) => p.player);
+    return opponentFallbackPlayers.data ?? [];
+  }, [opponentRosterQuery.data, opponentFallbackPlayers.data]);
+
   const { data: tags } = useTagsForMatch(matchId);
   const createTag = useCreateTag(matchId ?? "");
   const updateTag = useUpdateTag(matchId ?? "");
   const deleteTag = useDeleteTag(matchId ?? "");
   const lockMatch = useLockMatch(matchId ?? "");
+  const reviewTag = useReviewTag();
 
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [compilationTitle, setCompilationTitle] = useState("");
@@ -152,6 +175,7 @@ export function TaggingPage() {
           actionType,
           playerId: selectedPlayerId || null,
           relatedPlayerId: relatedAllowed ? selectedRelatedPlayerId || null : null,
+          defenderId: selectedDefenderId || null,
           isMade,
           ...(recaptureTimestamp ? { timestampSec } : {}),
           ...(useMarkedWindow && hasMarkedWindow
@@ -173,6 +197,7 @@ export function TaggingPage() {
       teamId: selectedTeamId,
       playerId: selectedPlayerId || undefined,
       relatedPlayerId: relatedAllowed ? selectedRelatedPlayerId || undefined : undefined,
+      defenderId: selectedDefenderId || undefined,
       isMade,
       ...(hasMarkedWindow ? { clipInSec: markedInSec ?? undefined, clipOutSec: markedOutSec ?? undefined } : {}),
     });
@@ -222,6 +247,7 @@ export function TaggingPage() {
     setSelectedTeamId(tag.teamId);
     setSelectedPlayerId(tag.playerId ?? "");
     setSelectedRelatedPlayerId(tag.relatedPlayerId ?? "");
+    setSelectedDefenderId(tag.defenderId ?? "");
     setRecaptureTimestamp(false);
     setUseMarkedWindow(false);
     clearMark();
@@ -273,6 +299,7 @@ export function TaggingPage() {
                     setSelectedTeamId(e.target.value);
                     setSelectedPlayerId("");
                     setSelectedRelatedPlayerId("");
+                    setSelectedDefenderId("");
                   }}
                 >
                   {homeTeam && <option value={homeTeam.id}>{homeTeam.name}</option>}
@@ -298,6 +325,17 @@ export function TaggingPage() {
                 <select value={selectedRelatedPlayerId} onChange={(e) => setSelectedRelatedPlayerId(e.target.value)}>
                   <option value="">{t("tagging.selectPlayer")}</option>
                   {teamPlayers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.firstName} {p.lastName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ flex: 1 }}>
+                {t("tagging.defender")}
+                <select value={selectedDefenderId} onChange={(e) => setSelectedDefenderId(e.target.value)}>
+                  <option value="">{t("tagging.selectPlayer")}</option>
+                  {opponentPlayers.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.firstName} {p.lastName}
                     </option>
@@ -406,13 +444,20 @@ export function TaggingPage() {
                     {tag.pointValue ? ` (+${tag.pointValue})` : ""}
                     {tag.player ? ` — ${tag.player.firstName} ${tag.player.lastName}` : ""}
                     {tag.relatedPlayer ? ` (${tag.relatedPlayer.firstName} ${tag.relatedPlayer.lastName})` : ""}
+                    {tag.defender ? ` · ${t("tagging.defendedBy", { name: `${tag.defender.firstName} ${tag.defender.lastName}` })}` : ""}
                     {typeof tag.clipInSec === "number" && typeof tag.clipOutSec === "number"
                       ? ` — ${t("tagging.clipWindowMarked", { in: tag.clipInSec.toFixed(1), out: tag.clipOutSec.toFixed(1) })}`
                       : ""}
                   </span>
                 </label>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {tag.reviewedAt && <span className="badge badge-locked">{t("tagging.reviewed")}</span>}
                   <ClipBadge tagId={tag.id} />
+                  {currentUser?.isSuperadmin && (
+                    <button className="btn-ghost btn-small" onClick={() => reviewTag.mutate(tag.id)} disabled={reviewTag.isPending}>
+                      {tag.reviewedAt ? t("tagging.unmarkReviewed") : t("tagging.markReviewed")}
+                    </button>
+                  )}
                   {canTag && !isEditableLocked && (
                     <>
                       <button className="btn-small" onClick={() => startEditing(tag.id)}>
