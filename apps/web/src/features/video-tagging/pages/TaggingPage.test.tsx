@@ -72,6 +72,17 @@ const coachCurrentUser = {
   memberships: [],
 };
 
+const adminCurrentUser = {
+  id: "user-3",
+  email: "admin@test.local",
+  firstName: "Super",
+  lastName: "Admin",
+  isSuperadmin: true,
+  isScout: false,
+  locale: "en",
+  memberships: [],
+};
+
 function mockCommonFetch(
   video: Record<string, unknown>,
   createdTags: Record<string, unknown>[],
@@ -305,5 +316,40 @@ describe("TaggingPage — RBAC (Scout/Admin can tag, Coach is read-only)", () =>
 
     await screen.findByText(/no video registered|nije registrovan video/i);
     expect(screen.queryByLabelText(/youtube/i)).toBeNull();
+  });
+
+  it("still lets an Admin tag and delete on a locked match — the lock only finalizes the Scout's work", async () => {
+    const createdTags: Record<string, unknown>[] = [
+      { id: "tag-1", matchId: "match-1", timestampSec: 5, actionType: "STEAL", teamId: "team-home", pointValue: null },
+    ];
+    mockCommonFetch(
+      { id: "video-1", sourceType: "FILE", fileKey: "matches/match-1/x.mp4" },
+      createdTags,
+      adminCurrentUser
+    );
+    const base = globalThis.fetch as unknown as (
+      input: RequestInfo | URL,
+      init?: RequestInit
+    ) => Promise<Response>;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/matches/match-1") && (init?.method ?? "GET") === "GET") {
+        return jsonResponse({ ...match, lockedAt: "2026-09-01T00:00:00.000Z" });
+      }
+      return base(input, init);
+    });
+    renderTaggingPage();
+
+    const video = (await screen.findByTestId("video-player-file")) as HTMLVideoElement;
+    video.currentTime = 42.5;
+    video.dispatchEvent(new Event("loadedmetadata"));
+
+    const assistButton = (await screen.findByRole("button", {
+      name: /assist|asistencija/i,
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(assistButton.disabled).toBe(false));
+
+    const deleteButton = await screen.findByRole("button", { name: /^delete$|^obriši$/i });
+    expect(deleteButton).toBeTruthy();
   });
 });

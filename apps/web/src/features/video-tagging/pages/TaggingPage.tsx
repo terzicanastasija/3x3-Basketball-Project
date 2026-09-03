@@ -19,7 +19,6 @@ import { ClipBadge } from "../../clips/ClipBadge";
 import { useCreateCompilation } from "../../clips/api";
 import { VideoPlayer } from "../player/VideoPlayer";
 import { VideoPlayerAdapter } from "../player/VideoPlayerAdapter";
-import { NavBar } from "../../../components/NavBar";
 
 const HOTKEY_TO_ACTION_TYPE: Record<string, ActionType> = Object.fromEntries(
   Object.entries(ACTION_TYPE_HOTKEYS).map(([actionType, key]) => [key, actionType as ActionType])
@@ -71,13 +70,13 @@ export function TaggingPage() {
   const [useMarkedWindow, setUseMarkedWindow] = useState(false);
 
   function markIn() {
-    if (!canTag || isLocked) return;
+    if (!canTag || isEditableLocked) return;
     setMarkedInSec(adapterRef.current?.getCurrentTime() ?? 0);
     setMarkedOutSec(null);
   }
 
   function markOut() {
-    if (!canTag || isLocked || markedInSec === null) return;
+    if (!canTag || isEditableLocked || markedInSec === null) return;
     const t = adapterRef.current?.getCurrentTime() ?? 0;
     if (t <= markedInSec) return;
     setMarkedOutSec(t);
@@ -133,9 +132,13 @@ export function TaggingPage() {
   }
 
   const isLocked = Boolean(match?.lockedAt);
+  // A locked match still blocks the Scout who locked it — that's the point of locking. Admin
+  // keeps an override to add/fix/delete tags after the fact, same spirit as Superadmin's
+  // existing override to delete a played match (see PROGRESS.md's RBAC section).
+  const isEditableLocked = isLocked && !currentUser?.isSuperadmin;
 
   function handleActionType(actionType: ActionType) {
-    if (!canTag || isLocked || !selectedTeamId) return;
+    if (!canTag || isEditableLocked || !selectedTeamId) return;
     const timestampSec = adapterRef.current?.getCurrentTime() ?? 0;
     const isMade = actionType.endsWith("_MADE") ? true : actionType.endsWith("_MISSED") ? false : undefined;
     const relatedAllowed = ACTION_TYPES_WITH_RELATED_PLAYER.includes(actionType);
@@ -178,7 +181,7 @@ export function TaggingPage() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (!canTag || isTypingTarget(e.target) || isLocked) return;
+      if (!canTag || isTypingTarget(e.target) || isEditableLocked) return;
       if (e.key === "[") {
         e.preventDefault();
         markIn();
@@ -200,7 +203,7 @@ export function TaggingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     canTag,
-    isLocked,
+    isEditableLocked,
     editingTagId,
     selectedTeamId,
     selectedPlayerId,
@@ -229,7 +232,6 @@ export function TaggingPage() {
 
   return (
     <div className="page page-wide">
-      <NavBar />
       <h1>
         {t("tagging.title")}: {match.phase && `${t(`matchPhase.${match.phase}`)} — `}
         {homeTeam?.name ?? "…"} {t("matches.detail.vs")} {awayTeam?.name ?? "…"}
@@ -308,7 +310,7 @@ export function TaggingPage() {
               <button
                 className="btn-small"
                 onClick={markIn}
-                disabled={isLocked || !adapterReady}
+                disabled={isEditableLocked || !adapterReady}
                 title={t("tagging.markInHint")}
               >
                 {t("tagging.markIn")} ([)
@@ -316,7 +318,7 @@ export function TaggingPage() {
               <button
                 className="btn-small"
                 onClick={markOut}
-                disabled={isLocked || !adapterReady || markedInSec === null}
+                disabled={isEditableLocked || !adapterReady || markedInSec === null}
                 title={t("tagging.markOutHint")}
               >
                 {t("tagging.markOut")} (])
@@ -370,7 +372,7 @@ export function TaggingPage() {
                 <button
                   key={actionType}
                   className="btn-small"
-                  disabled={isLocked || !adapterReady}
+                  disabled={isEditableLocked || !adapterReady}
                   onClick={() => handleActionType(actionType)}
                   title={`${t("tagging.hotkeyHint")}: ${ACTION_TYPE_HOTKEYS[actionType]}`}
                 >
@@ -411,7 +413,7 @@ export function TaggingPage() {
                 </label>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <ClipBadge tagId={tag.id} />
-                  {canTag && !isLocked && (
+                  {canTag && !isEditableLocked && (
                     <>
                       <button className="btn-small" onClick={() => startEditing(tag.id)}>
                         {t("tagging.edit")}

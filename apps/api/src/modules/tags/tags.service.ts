@@ -58,6 +58,13 @@ export class TagsService {
       },
     });
 
+    // An Admin editing a match after the Scout locked it (see ensureUnlockedAndManageable)
+    // changes the tag set the original lock-triggered recompute was based on — re-run it so
+    // dashboards reflect the correction instead of going stale.
+    if (match.lockedAt) {
+      await this.statRecomputeQueue.enqueueMatchRecompute(matchId);
+    }
+
     // Clip generation (Phase 5): only FILE-source tags get a real ffmpeg-cut clip — EXTERNAL
     // (YouTube) tags never get a ClipJob at all, just a deep link constructed on read by
     // ClipsModule. This is the only place a ClipJob is ever created.
@@ -77,9 +84,9 @@ export class TagsService {
 
   async update(user: AuthenticatedUser, tagId: string, dto: UpdateTagDto) {
     const tag = await this.findTagOrThrow(tagId);
-    await this.ensureUnlockedAndManageable(user, tag.matchId);
+    const match = await this.ensureUnlockedAndManageable(user, tag.matchId);
 
-    return this.prisma.actionTag.update({
+    const updated = await this.prisma.actionTag.update({
       where: { id: tagId },
       data: {
         ...dto,
@@ -87,12 +94,21 @@ export class TagsService {
         ...(dto.actionType ? { pointValue: pointValueForActionType(dto.actionType) } : {}),
       },
     });
+
+    if (match.lockedAt) {
+      await this.statRecomputeQueue.enqueueMatchRecompute(tag.matchId);
+    }
+    return updated;
   }
 
   async remove(user: AuthenticatedUser, tagId: string) {
     const tag = await this.findTagOrThrow(tagId);
-    await this.ensureUnlockedAndManageable(user, tag.matchId);
+    const match = await this.ensureUnlockedAndManageable(user, tag.matchId);
     await this.prisma.actionTag.delete({ where: { id: tagId } });
+
+    if (match.lockedAt) {
+      await this.statRecomputeQueue.enqueueMatchRecompute(tag.matchId);
+    }
   }
 
   async lockMatch(user: AuthenticatedUser, matchId: string) {
@@ -128,7 +144,10 @@ export class TagsService {
 
   private async ensureUnlockedAndManageable(user: AuthenticatedUser, matchId: string) {
     const match = await this.assertCanManageMatch(user, matchId);
-    if (match.lockedAt) {
+    // A Scout can no longer touch tags once locked — that's the whole point of locking, it
+    // finalizes their work. Admin keeps an override to fix a Scout's mistake after the fact,
+    // same spirit as Superadmin's existing override to delete a played match (see PROGRESS.md).
+    if (match.lockedAt && !user.isSuperadmin) {
       throw new BadRequestException("This match is locked — tags can no longer be changed.");
     }
     return match;

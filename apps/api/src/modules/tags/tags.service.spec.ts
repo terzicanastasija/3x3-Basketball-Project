@@ -23,6 +23,7 @@ function makeClipQueueMock() {
 
 const scoutUser: AuthenticatedUser = { id: "user-1", email: "scout@test.local", isSuperadmin: false, isScout: true };
 const coachUser: AuthenticatedUser = { id: "user-2", email: "coach@test.local", isSuperadmin: false, isScout: false };
+const adminUser: AuthenticatedUser = { id: "user-3", email: "admin@test.local", isSuperadmin: true, isScout: false };
 
 function unlockedMatch() {
   return { id: "match-1", homeTeamId: "team-home", awayTeamId: "team-away", lockedAt: null };
@@ -114,6 +115,23 @@ describe("TagsService.create", () => {
       })
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.actionTag.create).not.toHaveBeenCalled();
+  });
+
+  it("lets an Admin create a tag on a locked match, and re-enqueues a stat recompute — the lock override, since only a Scout is finalized by locking", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(lockedMatch());
+    prisma.actionTag.create.mockResolvedValue({ id: "tag-1" });
+    const queue = makeQueueMock();
+    const service = new TagsService(prisma as never, queue as never, makeClipQueueMock() as never);
+
+    await service.create(adminUser, "match-1", {
+      timestampSec: 5,
+      actionType: ActionType.STEAL,
+      teamId: "team-home",
+    });
+
+    expect(prisma.actionTag.create).toHaveBeenCalled();
+    expect(queue.enqueueMatchRecompute).toHaveBeenCalledWith("match-1");
   });
 
   it("rejects a Coach — tagging is Scout-or-Admin only, not club-scoped like Coach's other permissions", async () => {
@@ -245,6 +263,33 @@ describe("TagsService.update / remove", () => {
 
     await expect(service.remove(scoutUser, "tag-1")).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.actionTag.delete).not.toHaveBeenCalled();
+  });
+
+  it("lets an Admin update a tag on a locked match, and re-enqueues a stat recompute", async () => {
+    const prisma = makePrismaMock();
+    prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
+    prisma.match.findUnique.mockResolvedValue(lockedMatch());
+    prisma.actionTag.update.mockResolvedValue({ id: "tag-1" });
+    const queue = makeQueueMock();
+    const service = new TagsService(prisma as never, queue as never, makeClipQueueMock() as never);
+
+    await service.update(adminUser, "tag-1", { timestampSec: 10 });
+
+    expect(prisma.actionTag.update).toHaveBeenCalled();
+    expect(queue.enqueueMatchRecompute).toHaveBeenCalledWith("match-1");
+  });
+
+  it("lets an Admin delete a tag on a locked match, and re-enqueues a stat recompute", async () => {
+    const prisma = makePrismaMock();
+    prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1" });
+    prisma.match.findUnique.mockResolvedValue(lockedMatch());
+    const queue = makeQueueMock();
+    const service = new TagsService(prisma as never, queue as never, makeClipQueueMock() as never);
+
+    await service.remove(adminUser, "tag-1");
+
+    expect(prisma.actionTag.delete).toHaveBeenCalled();
+    expect(queue.enqueueMatchRecompute).toHaveBeenCalledWith("match-1");
   });
 
   it("allows editing and deleting a tag pre-lock", async () => {
