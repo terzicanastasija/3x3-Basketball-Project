@@ -1,3 +1,73 @@
+## Post-MVP: Synergy-inspired scouting features — cross-match search, possession-based PPP, defender field, tag-review QA (2026-09-03, later still)
+
+User asked for Synergy Sports comparison ideas, explicitly ruling out anything AI/auto-recognition
+— logical, manual, data-model features only. Gave 5 ranked recommendations; user picked 4:
+cross-match tag search, points-per-possession, a defender ("guarded by") field, and Admin tag-review
+QA. (Shot-location/court-zone tagging was recommendation #2 and wasn't picked — not built.)
+
+One migration (`20260903113855_add_defender_review_possessions`) covers all four: `ActionTag`
+gained `defenderId` (optional, independent of `playerId`/`relatedPlayerId` — always the OPPOSING
+team's player), `reviewedAt`/`reviewedById` (both set/cleared together, never one alone — see
+`TagsService.review()`); `StatSnapshot` gained `possessions Int` (a genuinely new, always-used
+column, not one of the pre-existing "reserved for later" ones).
+
+**Cross-match search (`GET /tags`)** — the biggest gap called out: tags were only ever viewable
+one match at a time. `TagsService.search()` filters by tournamentId/matchId/teamId/playerId/
+defenderId/actionType/isMade/reviewed (all AND'd, all optional), resolving match/team/tournament
+context per row since a search result — unlike a per-match tag list — can come from any match.
+Stays open-read like the existing per-match tag list (no new access restriction). New frontend
+page `/search` (linked from `NavBar` for every role) with a filter form and a results list linking
+each row back to its match's tagging screen.
+
+**Points-per-possession, computed exactly, not estimated** — `StatSnapshot.pointsPerPossession`
+and `plusMinus`/`avgPossessionSec` were reserved-but-unused columns since Phase 4. Rather than the
+usual box-score ESTIMATE formula (`FGA - OREB + TOV + 0.44*FTA`) other analytics tools use when
+they only have final totals, this app has real timestamped play-by-play, so `stat-aggregation.ts`'s
+new `computeTeamPossessions()` walks the actual tagged event sequence per match and counts
+possession-endings exactly: a team's possession ends on a made shot, a turnover (including being
+stolen from), or a miss the OTHER team defensive-rebounds — missing and keeping the OFFENSIVE
+rebound does *not* end it. Team-only, not per-player (a possession isn't a well-defined per-player
+count without on-court/lineup tracking this app doesn't have — same judgment call as "team career"
+not being a coherent CAREER-scope concept, from the Phase 4 session). Raw possession counts are
+stored and summed the same way every other counting stat rolls up MATCH → TOURNAMENT;
+`pointsPerPossession` is derived from the correctly-summed total at each scope in
+`StatsService.upsertSnapshot`, never re-divided on every read. **Known, documented simplification**:
+an and-1 trip (a made basket immediately followed by its resulting free throw) counts as two
+possession-endings instead of one, since tags don't carry an explicit link between a shooting
+foul's basket and its free throw — rare enough at this data scale not to be worth the schema
+complexity of linking them.
+
+**Defender field ("guarded by")** — an optional `defenderId` on `CreateTagDto`/`UpdateTagDto`,
+validated the same way `playerId`/`relatedPlayerId` already are. `TaggingPage` gained a Defender
+`<select>` sourced from the *opposing* team's roster (reusing the existing roster-then-club-fallback
+resolution pattern, just for whichever team isn't currently selected) — shown in the tag list as
+"Guarded by {name}".
+
+**Admin tag-review QA** — `POST /tags/:tagId/review` (Admin-only, a toggle: sets
+`reviewedAt`/`reviewedById` together, or clears both together) is deliberately separate from
+`update()` — review state isn't something a Scout edits, it's an Admin checking a Scout's work.
+`TaggingPage` shows a "Reviewed" badge plus a Mark/Unmark toggle button, Admin-only.
+
+`TAG_INCLUDE` (player/relatedPlayer/defender/reviewedBy names) is now a shared constant between
+`listForMatch` and `search` so the two can never drift apart. 18 new backend unit tests (7
+`computeTeamPossessions` cases including chronological-order-independence and the
+miss-then-own-offensive-rebound non-ending case; defenderId validation; 3 `search()` filter-mapping
+cases; 4 `review()` cases) — 103/103 backend tests passing (up from 85). 5 new frontend tests
+(defender-from-opposing-roster; Admin review toggle + badge; Scout sees no review toggle; 2
+`TagSearchPage` smoke tests) — 30/30 frontend passing, clean `tsc -b` and `nest build`.
+
+**Verified live against the real running stack, not just unit tests** — logged in as Superadmin,
+created a real tag on `match-morava-vs-drina` (a known scratch-test match from earlier sessions,
+already locked with demo-generator tags) with a defender selected: confirmed via direct API query
+the tag stored `defenderId`/`defender` correctly, confirmed the tag list rendered "Guarded by Nikola
+Todorovic", clicked "Mark reviewed" and watched the Reviewed badge appear live, confirmed
+`GET /tags?defenderId=...&reviewed=true` returned exactly that one tag, then deleted the test tag
+(admin post-lock override from the prior session) to leave the match's real demo data exactly as it
+was. `/search` page confirmed live with real seeded data: filters render, results list shows real
+match/tournament context with working deep links to each match's tagging screen.
+
+---
+
 ## Post-MVP: manual-testing feedback pass as Admin — nav layout bug, home dashboard, player delete/DOB, club-name search, post-lock admin override (2026-09-03)
 
 User manually clicked through the app as Superadmin (dev stack started fresh this session — Docker
