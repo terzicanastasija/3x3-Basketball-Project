@@ -32,17 +32,19 @@ export class StatsService {
   async recomputeForMatch(matchId: string): Promise<void> {
     const match = await this.prisma.match.findUniqueOrThrow({
       where: { id: matchId },
-      select: { tournamentId: true },
+      select: { tournamentId: true, homeTeamId: true, awayTeamId: true },
     });
     const tags = await this.prisma.actionTag.findMany({
       where: { matchId },
-      select: { actionType: true, teamId: true, playerId: true },
+      select: { actionType: true, teamId: true, playerId: true, timestampSec: true },
     });
     // Prisma generates its own ActionType enum from schema.prisma (kept in sync by hand with
     // @3x3/shared's — see the schema comment); this boundary cast is the same pattern
     // role.mapper.ts already uses for Role, just inline since it's only needed here.
     const { players, teams } = aggregateMatchTags(
-      tags.map((tag) => ({ ...tag, actionType: tag.actionType as unknown as ActionType }))
+      tags.map((tag) => ({ ...tag, actionType: tag.actionType as unknown as ActionType })),
+      match.homeTeamId,
+      match.awayTeamId
     );
 
     await this.prisma.$transaction(async (tx) => {
@@ -116,6 +118,14 @@ export class StatsService {
   // this does the upsert by hand: a plain findFirst (which handles null fine) followed by a
   // create or an update-by-id.
   private async upsertSnapshot(tx: Tx, key: StatSnapshotKey, line: StatLine) {
+    // Derived here (not stored in StatLine itself) rather than re-divided on every read — same
+    // "write the ratio once, from the correctly-summed raw counts" reasoning as the possessions
+    // column comment in schema.prisma. 0 possessions (a player row, or a team with none yet)
+    // means "not meaningful," not "0.0" — left null rather than dividing by zero.
+    const data = {
+      ...line,
+      pointsPerPossession: line.possessions > 0 ? line.points / line.possessions : null,
+    };
     const existing = await tx.statSnapshot.findFirst({
       where: {
         scopeType: key.scopeType,
@@ -127,8 +137,8 @@ export class StatsService {
       select: { id: true },
     });
     if (existing) {
-      return tx.statSnapshot.update({ where: { id: existing.id }, data: { ...line } });
+      return tx.statSnapshot.update({ where: { id: existing.id }, data });
     }
-    return tx.statSnapshot.create({ data: { ...key, ...line } });
+    return tx.statSnapshot.create({ data: { ...key, ...data } });
   }
 }
