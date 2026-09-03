@@ -34,7 +34,7 @@ function lockedMatch() {
 }
 
 describe("TagsService.listForMatch", () => {
-  it("includes player/relatedPlayer names — the tag list is the only place a viewer can tell which player a clip belongs to", () => {
+  it("includes player/relatedPlayer/defender/reviewedBy names — the tag list is the only place a viewer can tell which player a clip belongs to", () => {
     const prisma = makePrismaMock();
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
@@ -45,6 +45,8 @@ describe("TagsService.listForMatch", () => {
         include: {
           player: { select: { id: true, firstName: true, lastName: true } },
           relatedPlayer: { select: { id: true, firstName: true, lastName: true } },
+          defender: { select: { id: true, firstName: true, lastName: true } },
+          reviewedBy: { select: { id: true, firstName: true, lastName: true } },
         },
       })
     );
@@ -356,5 +358,130 @@ describe("TagsService.lockMatch", () => {
     const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
 
     await expect(service.lockMatch(coachUser, "match-1")).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe("TagsService.create — defenderId", () => {
+  it("rejects a defenderId that doesn't reference a real player — a bad ID must 404, not 500", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    prisma.player.findUnique.mockResolvedValue(null);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await expect(
+      service.create(scoutUser, "match-1", {
+        timestampSec: 5,
+        actionType: ActionType.SHOT_2PT_MADE,
+        teamId: "team-home",
+        defenderId: "player-does-not-exist",
+      })
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.actionTag.create).not.toHaveBeenCalled();
+  });
+
+  it("stores a valid defenderId", async () => {
+    const prisma = makePrismaMock();
+    prisma.match.findUnique.mockResolvedValue(unlockedMatch());
+    prisma.player.findUnique.mockResolvedValue({ id: "player-defender" });
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await service.create(scoutUser, "match-1", {
+      timestampSec: 5,
+      actionType: ActionType.SHOT_2PT_MADE,
+      teamId: "team-home",
+      defenderId: "player-defender",
+    });
+
+    expect(prisma.actionTag.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ defenderId: "player-defender" }) })
+    );
+  });
+});
+
+describe("TagsService.search", () => {
+  it("filters by tournamentId via a nested match.tournamentId where, and includes match/team/tournament context", () => {
+    const prisma = makePrismaMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    service.search({ tournamentId: "tourn-1", playerId: "player-1" });
+
+    expect(prisma.actionTag.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ playerId: "player-1", match: { tournamentId: "tourn-1" } }),
+      })
+    );
+  });
+
+  it("maps reviewed:true / reviewed:false to reviewedAt not-null / null", () => {
+    const prisma = makePrismaMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    service.search({ reviewed: true });
+    expect(prisma.actionTag.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ reviewedAt: { not: null } }) })
+    );
+
+    service.search({ reviewed: false });
+    expect(prisma.actionTag.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ reviewedAt: null }) })
+    );
+  });
+
+  it("with no filters, applies no where clauses at all", () => {
+    const prisma = makePrismaMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    service.search({});
+
+    expect(prisma.actionTag.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  });
+});
+
+describe("TagsService.review", () => {
+  it("marks an unreviewed tag reviewed, stamping reviewedAt/reviewedById to the calling Admin", async () => {
+    const prisma = makePrismaMock();
+    prisma.actionTag.findUnique.mockResolvedValue({ id: "tag-1", matchId: "match-1", reviewedAt: null });
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await service.review(adminUser, "tag-1");
+
+    expect(prisma.actionTag.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "tag-1" },
+        data: { reviewedAt: expect.any(Date), reviewedById: adminUser.id },
+      })
+    );
+  });
+
+  it("clears an already-reviewed tag back to unreviewed — it's a toggle", async () => {
+    const prisma = makePrismaMock();
+    prisma.actionTag.findUnique.mockResolvedValue({
+      id: "tag-1",
+      matchId: "match-1",
+      reviewedAt: new Date("2026-01-01"),
+    });
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await service.review(adminUser, "tag-1");
+
+    expect(prisma.actionTag.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { reviewedAt: null, reviewedById: null } })
+    );
+  });
+
+  it("rejects a non-Admin (Scout included) — review is QA on the Scout's own work", async () => {
+    const prisma = makePrismaMock();
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await expect(service.review(scoutUser, "tag-1")).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.actionTag.update).not.toHaveBeenCalled();
+  });
+
+  it("404s on a tag that doesn't exist", async () => {
+    const prisma = makePrismaMock();
+    prisma.actionTag.findUnique.mockResolvedValue(null);
+    const service = new TagsService(prisma as never, makeQueueMock() as never, makeClipQueueMock() as never);
+
+    await expect(service.review(adminUser, "tag-missing")).rejects.toBeInstanceOf(NotFoundException);
   });
 });

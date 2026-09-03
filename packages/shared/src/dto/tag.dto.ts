@@ -38,6 +38,9 @@ export const createTagSchema = z
     teamId: z.string().min(1),
     playerId: z.string().min(1).optional(),
     relatedPlayerId: z.string().min(1).optional(),
+    // Opponent who defended this possession/shot — optional scouting field, independent of the
+    // primary/related player above (which are always on the credited team).
+    defenderId: z.string().min(1).optional(),
     isMade: z.boolean().optional(),
     ...clipWindowFields,
   })
@@ -50,8 +53,24 @@ export const updateTagSchema = z
     actionType: z.nativeEnum(ActionType).optional(),
     playerId: z.string().min(1).nullable().optional(),
     relatedPlayerId: z.string().min(1).nullable().optional(),
+    defenderId: z.string().min(1).nullable().optional(),
     isMade: z.boolean().nullable().optional(),
     ...clipWindowFields,
   })
   .superRefine(refineClipWindow);
 export type UpdateTagDto = z.infer<typeof updateTagSchema>;
+
+// Cross-match tag search (Synergy-style "find every tagged action matching X across the whole
+// library", not just one match's tag list). All filters are optional and AND together.
+export const tagSearchQuerySchema = z.object({
+  tournamentId: z.string().min(1).optional(),
+  matchId: z.string().min(1).optional(),
+  teamId: z.string().min(1).optional(),
+  playerId: z.string().min(1).optional(),
+  defenderId: z.string().min(1).optional(),
+  actionType: z.nativeEnum(ActionType).optional(),
+  isMade: z.coerce.boolean().optional(),
+  // Undefined = don't filter on review state; true/false = only reviewed / only unreviewed.
+  reviewed: z.coerce.boolean().optional(),
+});
+export type TagSearchQueryDto = z.infer<typeof tagSearchQuerySchema>;

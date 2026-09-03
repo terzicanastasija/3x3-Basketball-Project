@@ -144,6 +144,7 @@ model User {
   memberships    ClubMembership[]
   createdMatches Match[]        @relation("MatchCreatedBy")
   createdTags    ActionTag[]    @relation("TagCreatedBy")
+  reviewedTags   ActionTag[]    @relation("TagReviewedBy")
   scoutNotes     ScoutNote[]
   activityLogs   ActivityLog[]
   refreshTokens  RefreshToken[]
@@ -229,6 +230,7 @@ model Player {
   rosterEntries RosterPlayer[]
   actionTagsAs  ActionTag[]    @relation("PrimaryPlayer")
   actionTagsRel ActionTag[]    @relation("RelatedPlayer")
+  actionTagsDef ActionTag[]    @relation("DefenderPlayer")
   scoutNotes    ScoutNote[]
   statSnapshots StatSnapshot[] @relation("PlayerStatSnapshots")
 
@@ -346,11 +348,16 @@ model ActionTag {
   teamId          String // team credited/charged with the action
   playerId        String? // primary player (null allowed for rare pure team events)
   relatedPlayerId String? // assist passer / blocker / stolen-from opponent
+  defenderId      String? // opponent player who defended this possession/shot — optional scouting field
   pointValue      Int? // 1 or 2 only — enforced in the service layer AND a DB CHECK constraint
   isMade          Boolean? // for shot/FT actions; null for non-shot actions
   clipInSec       Float? // manual Synergy-style in-point; overrides the auto 5s/3s clip window
   clipOutSec      Float? // manual out-point — set together with clipInSec, never alone
   createdById     String
+  // QA review: an Admin marks a Scout's tag as checked. Both set together, or neither — see
+  // TagsService.review(), the only place these are ever written.
+  reviewedAt      DateTime?
+  reviewedById    String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -359,13 +366,16 @@ model ActionTag {
   team          Team        @relation(fields: [teamId], references: [id])
   player        Player?     @relation("PrimaryPlayer", fields: [playerId], references: [id])
   relatedPlayer Player?     @relation("RelatedPlayer", fields: [relatedPlayerId], references: [id])
+  defender      Player?     @relation("DefenderPlayer", fields: [defenderId], references: [id])
   createdBy     User        @relation("TagCreatedBy", fields: [createdById], references: [id])
+  reviewedBy    User?       @relation("TagReviewedBy", fields: [reviewedById], references: [id])
   clipJob       ClipJob?
   compilationItems CompilationItem[]
 
   @@index([matchId])
   @@index([playerId])
   @@index([teamId])
+  @@index([defenderId])
   @@index([matchId, timestampSec])
 }
 
@@ -427,9 +437,15 @@ model StatSnapshot {
   blocks        Int @default(0)
   personalFouls Int @default(0)
 
+  // Team-only (see stat-aggregation.ts's computeTeamPossessions — a "possession" isn't a
+  // well-defined per-player count without lineup/on-court tracking, which this app doesn't
+  // have). Raw count is stored (not just the ratio) so TOURNAMENT/CAREER rollups can sum it
+  // correctly across matches instead of averaging an already-divided ratio.
+  possessions Int @default(0)
+
   // Reserved nullable columns for later-pass advanced metrics — added now so no migration
   // is needed to start populating them once that work begins.
-  pointsPerPossession Float?
+  pointsPerPossession Float? // points / possessions, team rows only — see StatsService.upsertSnapshot
   plusMinus           Int?
   avgPossessionSec    Float?
 
